@@ -88,9 +88,10 @@ const Dashboard = () => {
               <div className="mt-2">
                 <Progress 
                   value={70} 
-                  className="h-2" 
-                  indicatorClassName="bg-fridge-orange" 
+                  className="h-2 bg-gray-200"
+                  // Removed the indicatorClassName prop
                 />
+                <div className="h-2 w-[70%] bg-fridge-orange rounded-full -mt-2"></div>
               </div>
             </CardContent>
           </Card>
@@ -114,9 +115,10 @@ const Dashboard = () => {
               <div className="mt-2">
                 <Progress 
                   value={30} 
-                  className="h-2" 
-                  indicatorClassName="bg-fridge-green" 
+                  className="h-2 bg-gray-200"
+                  // Removed the indicatorClassName prop
                 />
+                <div className="h-2 w-[30%] bg-fridge-green rounded-full -mt-2"></div>
               </div>
             </CardContent>
           </Card>
@@ -140,9 +142,10 @@ const Dashboard = () => {
               <div className="mt-2">
                 <Progress 
                   value={50} 
-                  className="h-2" 
-                  indicatorClassName="bg-fridge-blue" 
+                  className="h-2 bg-gray-200" 
+                  // Removed the indicatorClassName prop
                 />
+                <div className="h-2 w-[50%] bg-fridge-blue rounded-full -mt-2"></div>
               </div>
             </CardContent>
           </Card>
