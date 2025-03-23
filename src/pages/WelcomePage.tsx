@@ -14,14 +14,14 @@ const WelcomePage = () => {
       description: "Keep track of your food items, reduce waste, and discover new recipes",
       buttonText: "Get Started",
       color: "bg-gradient-blue",
-      image: "https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?auto=format&fit=crop&w=800&q=80"
+      image: "https://images.unsplash.com/photo-1606214174585-fe31582dc6ee?auto=format&fit=crop&w=800&q=80"
     },
     {
       title: "Scan Receipts",
       description: "Automatically add groceries to your inventory by scanning your receipts",
       buttonText: "Next",
       color: "bg-gradient-blue",
-      image: "https://images.unsplash.com/photo-1558888401-3cc1de77652d?auto=format&fit=crop&w=800&q=80",
+      image: "https://images.unsplash.com/photo-1450101499163-c8848c66ca85?auto=format&fit=crop&w=800&q=80",
       icon: <Receipt className="h-6 w-6 mr-2" />
     },
     {
@@ -29,7 +29,7 @@ const WelcomePage = () => {
       description: "Get notified when food is about to expire so you can use it before it's too late",
       buttonText: "Next",
       color: "bg-gradient-blue",
-      image: "https://images.unsplash.com/photo-1546548970-71785318a17b?auto=format&fit=crop&w=800&q=80",
+      image: "https://images.unsplash.com/photo-1553546895-531931aa1aa8?auto=format&fit=crop&w=800&q=80",
       icon: <List className="h-6 w-6 mr-2" />
     },
     {
@@ -37,7 +37,7 @@ const WelcomePage = () => {
       description: "Get personalized recipe ideas based on the ingredients you have at home",
       buttonText: "Next",
       color: "bg-gradient-blue",
-      image: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?auto=format&fit=crop&w=800&q=80",
+      image: "https://images.unsplash.com/photo-1466637574441-749b8f19452f?auto=format&fit=crop&w=800&q=80",
       icon: <ChefHat className="h-6 w-6 mr-2" />
     },
     {
@@ -45,7 +45,7 @@ const WelcomePage = () => {
       description: "Connect with grocery stores for easy shopping of missing ingredients",
       buttonText: "Get Started",
       color: "bg-gradient-blue",
-      image: "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=80",
+      image: "https://images.unsplash.com/photo-1579113800032-c38bd7635818?auto=format&fit=crop&w=800&q=80",
       icon: <ShoppingCart className="h-6 w-6 mr-2" />
     }
   ];
@@ -87,13 +87,13 @@ const WelcomePage = () => {
         </div>
         
         <div className="mb-8">
-          <div className="w-64 h-64 mx-auto mb-6 relative">
+          <div className="w-64 h-64 mx-auto mb-6 relative overflow-hidden">
             <div className="absolute inset-0 bg-white/10 rounded-full animate-pulse" />
             {currentSlideData.image && (
               <img 
                 src={currentSlideData.image} 
                 alt={currentSlideData.title} 
-                className="w-full h-full object-contain rounded-full animate-fade-in p-4" 
+                className="w-full h-full object-cover rounded-full animate-fade-in p-2" 
               />
             )}
           </div>
