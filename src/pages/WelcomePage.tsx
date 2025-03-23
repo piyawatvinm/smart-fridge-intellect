@@ -14,14 +14,14 @@ const WelcomePage = () => {
       description: "Keep track of your food items, reduce waste, and discover new recipes",
       buttonText: "Get Started",
       color: "bg-gradient-blue",
-      image: "/lovable-uploads/7bdceca8-ab1b-4b15-9380-3f882c3dcd0a.png"
+      image: "https://images.unsplash.com/photo-1488590528505-98d2b5aba04b?auto=format&fit=crop&w=800&q=80"
     },
     {
       title: "Scan Receipts",
       description: "Automatically add groceries to your inventory by scanning your receipts",
       buttonText: "Next",
       color: "bg-gradient-blue",
-      image: "/lovable-uploads/a0c9b6de-9ece-4f16-b238-017e144649cc.png",
+      image: "https://images.unsplash.com/photo-1558888401-3cc1de77652d?auto=format&fit=crop&w=800&q=80",
       icon: <Receipt className="h-6 w-6 mr-2" />
     },
     {
@@ -29,7 +29,7 @@ const WelcomePage = () => {
       description: "Get notified when food is about to expire so you can use it before it's too late",
       buttonText: "Next",
       color: "bg-gradient-blue",
-      image: "/lovable-uploads/20043334-4b13-492a-86ca-3d31d67ca0b3.png",
+      image: "https://images.unsplash.com/photo-1546548970-71785318a17b?auto=format&fit=crop&w=800&q=80",
       icon: <List className="h-6 w-6 mr-2" />
     },
     {
@@ -37,7 +37,7 @@ const WelcomePage = () => {
       description: "Get personalized recipe ideas based on the ingredients you have at home",
       buttonText: "Next",
       color: "bg-gradient-blue",
-      image: "/lovable-uploads/03b0a8ee-b8be-4393-9dfb-da609f65d624.png",
+      image: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?auto=format&fit=crop&w=800&q=80",
       icon: <ChefHat className="h-6 w-6 mr-2" />
     },
     {
@@ -45,7 +45,7 @@ const WelcomePage = () => {
       description: "Connect with grocery stores for easy shopping of missing ingredients",
       buttonText: "Get Started",
       color: "bg-gradient-blue",
-      image: "/lovable-uploads/9cadcb73-4e65-49e3-ac69-e45f3f42bc1f.png",
+      image: "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=800&q=80",
       icon: <ShoppingCart className="h-6 w-6 mr-2" />
     }
   ];
@@ -93,7 +93,7 @@ const WelcomePage = () => {
               <img 
                 src={currentSlideData.image} 
                 alt={currentSlideData.title} 
-                className="w-full h-full object-contain animate-fade-in p-4" 
+                className="w-full h-full object-contain rounded-full animate-fade-in p-4" 
               />
             )}
           </div>
