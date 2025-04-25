@@ -1,4 +1,3 @@
-
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
@@ -58,7 +57,6 @@ const WelcomePage = () => {
     }
   };
   
-  // Auto progress slides
   useEffect(() => {
     const interval = setInterval(() => {
       if (currentSlide < slides.length - 1) {
@@ -72,67 +70,69 @@ const WelcomePage = () => {
   const currentSlideData = slides[currentSlide];
   
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center overflow-hidden">
-      <div className="w-full h-full fixed top-0 left-0 bg-gradient-to-br from-fridge-blue to-fridge-blue-light" />
-      
-      <div className="relative z-10 flex flex-col items-center justify-center px-4 py-10 max-w-md w-full text-white text-center">
-        <div className="absolute top-0 right-0 p-4">
+    <div className="min-h-screen flex flex-col items-center justify-center overflow-hidden bg-gradient-to-br from-white to-gray-50">
+      <div className="relative z-10 flex flex-col items-center justify-center px-6 py-12 max-w-md w-full text-center">
+        <div className="absolute top-4 right-4">
           <Button 
             variant="ghost" 
-            className="text-white hover:bg-white/10"
+            className="text-gray-600 hover:bg-gray-100/80 transition-colors"
             onClick={() => navigate("/login")}
           >
             Skip
           </Button>
         </div>
         
-        <div className="mb-8">
-          <div className="w-64 h-64 mx-auto mb-6 relative overflow-hidden">
-            <div className="absolute inset-0 bg-white/10 rounded-full animate-pulse" />
+        <div className="mb-12 space-y-8">
+          <div className="w-72 h-72 mx-auto relative overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-fridge-blue/5 to-fridge-blue-light/5 rounded-2xl" />
             {currentSlideData.image && (
               <img 
                 src={currentSlideData.image} 
                 alt={currentSlideData.title} 
-                className="w-full h-full object-cover rounded-full animate-fade-in p-2" 
+                className="w-full h-full object-cover rounded-2xl shadow-lg transform transition-transform duration-500 hover:scale-105" 
               />
             )}
           </div>
           
-          <h1 className="text-3xl font-bold mb-4 animate-slide-up">
-            {currentSlideData.title}
-          </h1>
-          <p className="text-white/80 mb-8 animate-slide-up">
-            {currentSlideData.description}
-          </p>
+          <div className="space-y-4">
+            <h1 className="text-4xl font-bold text-gray-900 tracking-tight">
+              {currentSlideData.title}
+            </h1>
+            <p className="text-gray-600 text-lg leading-relaxed">
+              {currentSlideData.description}
+            </p>
+          </div>
         </div>
         
-        <div className="flex justify-center mb-8 space-x-2">
+        <div className="flex justify-center mb-10 space-x-2">
           {slides.map((_, index) => (
             <div 
               key={index} 
-              className={`h-2 rounded-full transition-all duration-300 ${
+              className={`h-1.5 rounded-full transition-all duration-300 ${
                 index === currentSlide 
-                  ? "w-8 bg-white" 
-                  : "w-2 bg-white/40"
+                  ? "w-8 bg-fridge-blue" 
+                  : "w-1.5 bg-gray-200"
               }`}
             />
           ))}
         </div>
         
-        <Button 
-          className="w-full bg-white text-fridge-blue hover:bg-white/90 animate-slide-up"
-          onClick={handleNextSlide}
-        >
-          {currentSlideData.icon}
-          {currentSlideData.buttonText}
-          <ChevronRight className="h-4 w-4 ml-2" />
-        </Button>
-        
-        {currentSlide === 0 && (
-          <div className="mt-4 text-white/80 text-sm animate-fade-in">
-            <p>Already have an account? <button onClick={() => navigate("/login")} className="underline">Log in</button></p>
-          </div>
-        )}
+        <div className="w-full space-y-4">
+          <Button 
+            className="w-full h-12 bg-fridge-blue hover:bg-fridge-blue-light transition-colors duration-300 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+            onClick={handleNextSlide}
+          >
+            {currentSlideData.icon}
+            {currentSlideData.buttonText}
+            <ChevronRight className="h-4 w-4 ml-2" />
+          </Button>
+          
+          {currentSlide === 0 && (
+            <div className="text-gray-600 text-sm animate-fade-in">
+              <p>Already have an account? <button onClick={() => navigate("/login")} className="text-fridge-blue hover:text-fridge-blue-light underline transition-colors">Log in</button></p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
