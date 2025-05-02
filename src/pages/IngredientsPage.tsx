@@ -1,10 +1,10 @@
 import { Layout } from "@/components/LayoutComponents";
 import { useState, useEffect, FormEvent } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Search, Filter, Plus, Trash2, Pencil, Tag, Calendar, Clock, Info } from "lucide-react";
+import { Search, Filter, Plus, Trash2, Pencil, Tag, Calendar, Clock, Info, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -12,6 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/components/AuthComponents";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetFooter, SheetClose } from "@/components/ui/sheet";
 
 interface Ingredient {
   id: string;
@@ -32,6 +33,8 @@ const IngredientsPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editSheetOpen, setEditSheetOpen] = useState(false);
+  const [currentIngredient, setCurrentIngredient] = useState<Ingredient | null>(null);
   
   // Form state
   const [newIngredient, setNewIngredient] = useState({
@@ -53,7 +56,8 @@ const IngredientsPage = () => {
       // Fetch ingredients from Supabase
       const { data, error } = await supabase
         .from('ingredients')
-        .select('*');
+        .select('*')
+        .eq('user_id', user?.id);
       
       if (error) {
         throw error;
@@ -86,8 +90,8 @@ const IngredientsPage = () => {
             quantity: Number(item.quantity),
             unit: item.unit,
             expiryDate,
-            // Since there's no category column yet, we'll use a mock one
-            category: 'Dairy', // Temporary default
+            // Now we can use the category column from the database
+            category: item.category || 'Uncategorized', 
             purchaseDate,
             daysLeft: daysLeft > 0 ? daysLeft : 0,
             status
@@ -337,6 +341,7 @@ const IngredientsPage = () => {
             quantity: newIngredient.quantity,
             unit: newIngredient.unit,
             expiry_date: newIngredient.expiryDate,
+            category: newIngredient.category, // Now we save the category
             user_id: user.id
           }
         ])
@@ -364,6 +369,51 @@ const IngredientsPage = () => {
     } catch (error) {
       console.error('Error saving ingredient:', error);
       toast.error("Failed to save ingredient");
+    }
+  };
+
+  // Edit ingredient handler
+  const editIngredient = (ingredient: Ingredient) => {
+    setCurrentIngredient(ingredient);
+    setNewIngredient({
+      name: ingredient.name,
+      quantity: ingredient.quantity,
+      unit: ingredient.unit,
+      category: ingredient.category,
+      expiryDate: ingredient.expiryDate.toISOString().split('T')[0]
+    });
+    setEditSheetOpen(true);
+  };
+
+  // Update ingredient
+  const updateIngredient = async () => {
+    try {
+      if (!currentIngredient) return;
+      
+      const { error } = await supabase
+        .from('ingredients')
+        .update({
+          name: newIngredient.name,
+          quantity: newIngredient.quantity,
+          unit: newIngredient.unit,
+          expiry_date: newIngredient.expiryDate,
+          category: newIngredient.category
+        })
+        .eq('id', currentIngredient.id);
+      
+      if (error) {
+        throw error;
+      }
+      
+      toast.success("Ingredient updated successfully");
+      setEditSheetOpen(false);
+      
+      // Reload ingredients
+      loadIngredients();
+      
+    } catch (error) {
+      console.error('Error updating ingredient:', error);
+      toast.error("Failed to update ingredient");
     }
   };
 
@@ -495,6 +545,10 @@ const IngredientsPage = () => {
                               <SelectItem value="Fruits">Fruits</SelectItem>
                               <SelectItem value="Bakery">Bakery</SelectItem>
                               <SelectItem value="Pantry">Pantry</SelectItem>
+                              <SelectItem value="Frozen">Frozen</SelectItem>
+                              <SelectItem value="Drinks">Drinks</SelectItem>
+                              <SelectItem value="Snacks">Snacks</SelectItem>
+                              <SelectItem value="Other">Other</SelectItem>
                             </SelectContent>
                           </Select>
                         </div>
@@ -600,7 +654,12 @@ const IngredientsPage = () => {
                           </div>
                           {getStatusBadge(ingredient.status)}
                           <div className="flex space-x-1">
-                            <Button variant="outline" size="icon" className="h-8 w-8">
+                            <Button 
+                              variant="outline" 
+                              size="icon" 
+                              className="h-8 w-8"
+                              onClick={() => editIngredient(ingredient)}
+                            >
                               <Pencil className="h-4 w-4" />
                             </Button>
                             <Button 
@@ -814,6 +873,100 @@ const IngredientsPage = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Edit Ingredient Sheet */}
+      <Sheet open={editSheetOpen} onOpenChange={setEditSheetOpen}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>Edit Ingredient</SheetTitle>
+            <SheetDescription>
+              Make changes to your ingredient
+            </SheetDescription>
+          </SheetHeader>
+          <div className="py-6 space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">Name</Label>
+              <Input 
+                id="name" 
+                value={newIngredient.name}
+                onChange={handleInputChange}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-quantity">Quantity</Label>
+              <Input 
+                id="quantity" 
+                type="number" 
+                min="1"
+                value={newIngredient.quantity}
+                onChange={handleInputChange}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-unit">Unit</Label>
+              <Select 
+                value={newIngredient.unit}
+                onValueChange={(value) => handleSelectChange('unit', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="piece">Piece</SelectItem>
+                  <SelectItem value="kg">Kg</SelectItem>
+                  <SelectItem value="g">Gram</SelectItem>
+                  <SelectItem value="l">Liter</SelectItem>
+                  <SelectItem value="ml">ml</SelectItem>
+                  <SelectItem value="pack">Pack</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-category">Category</Label>
+              <Select 
+                value={newIngredient.category}
+                onValueChange={(value) => handleSelectChange('category', value)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Dairy">Dairy</SelectItem>
+                  <SelectItem value="Meat">Meat</SelectItem>
+                  <SelectItem value="Vegetables">Vegetables</SelectItem>
+                  <SelectItem value="Fruits">Fruits</SelectItem>
+                  <SelectItem value="Bakery">Bakery</SelectItem>
+                  <SelectItem value="Pantry">Pantry</SelectItem>
+                  <SelectItem value="Frozen">Frozen</SelectItem>
+                  <SelectItem value="Drinks">Drinks</SelectItem>
+                  <SelectItem value="Snacks">Snacks</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-expiryDate">Expiry Date</Label>
+              <Input 
+                id="expiryDate" 
+                type="date"
+                value={newIngredient.expiryDate}
+                onChange={handleInputChange}
+              />
+            </div>
+          </div>
+          <SheetFooter>
+            <SheetClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </SheetClose>
+            <Button 
+              className="bg-fridge-blue hover:bg-fridge-blue-light"
+              onClick={updateIngredient}
+            >
+              Save changes
+            </Button>
+          </SheetFooter>
+        </SheetContent>
+      </Sheet>
     </Layout>
   );
 };

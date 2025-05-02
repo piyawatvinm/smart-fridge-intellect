@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthComponents';
@@ -12,7 +13,8 @@ import {
   X, 
   User,
   Bell,
-  Search
+  Search,
+  Tag
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -256,53 +258,51 @@ export const Sidebar = () => {
     { path: '/stores', label: 'Stores', icon: ShoppingBag },
     { path: '/recommendations', label: 'Recommendations', icon: ChefHat },
   ]);
+  const [categories, setCategories] = useState<string[]>([]);
+  const { getUser } = useAuth();
+  const user = getUser();
   
   useEffect(() => {
-    // Here we would fetch the navigation items from the database
-    const fetchNavigationItems = async () => {
+    // Here we fetch unique categories from the ingredients table
+    const fetchCategories = async () => {
+      if (!user) return;
+      
       try {
-        // This would connect to your ingredients table or a navigation table if you create one
-        // For now we're using the static items defined above
-        console.log('Would fetch navigation items from database here');
-        
-        // We cannot fetch 'category' because it doesn't exist in the table schema
-        const { data: ingredients, error } = await supabase
+        const { data, error } = await supabase
           .from('ingredients')
-          .select('name'); // Select a column that actually exists
-          
+          .select('category')
+          .eq('user_id', user.id)
+          .not('category', 'is', null);
+        
         if (error) {
-          console.error('Error fetching ingredients data:', error);
-        } else if (ingredients && ingredients.length > 0) {
-          console.log('Ingredients data retrieved:', ingredients);
+          console.error('Error fetching ingredients categories:', error);
+        } else if (data && data.length > 0) {
+          console.log('Ingredients data retrieved:', data);
           
-          // Since we don't have category column, we can't create category-based navigation
-          // We would need to add a category column to the ingredients table
-          // For now, we'll just use the static navigation items
-          console.log('Using default navigation items until category column is added');
-          
-          // If a category column is added to the ingredients table in the future,
-          // uncomment and modify this code:
-          /*
-          // Extract unique categories using JavaScript (instead of SQL distinct)
-          const uniqueCategories = [...new Set(ingredients.map(item => item.category))];
+          // Extract unique categories
+          const uniqueCategories = [...new Set(data.map(item => item.category).filter(Boolean))];
           console.log('Unique categories:', uniqueCategories);
           
+          setCategories(uniqueCategories);
+
+          // We could create category-based navigation here if needed
+          /*
           // Create navigation items based on categories
           const categoryNavItems = uniqueCategories.map(category => ({
             path: `/category/${category}`,
             label: category,
             icon: Tag
           }));
-          setNavItems([...navItems, ...categoryNavItems]);
+          setNavItems(prevItems => [...prevItems, ...categoryNavItems]);
           */
         }
       } catch (error) {
-        console.error('Error fetching navigation items:', error);
+        console.error('Error fetching categories:', error);
       }
     };
     
-    fetchNavigationItems();
-  }, []);
+    fetchCategories();
+  }, [user]);
   
   return (
     <div className="hidden md:flex flex-col h-screen bg-white border-r border-gray-200 w-64 sticky top-0">
@@ -323,6 +323,26 @@ export const Sidebar = () => {
               />
             );
           })}
+          
+          {categories.length > 0 && (
+            <>
+              <div className="pt-4 pb-2">
+                <h2 className="text-xs uppercase font-semibold text-gray-500 tracking-wider">
+                  Categories
+                </h2>
+              </div>
+              
+              {categories.map(category => (
+                <SidebarItem
+                  key={`category-${category}`}
+                  to={`/ingredients?category=${encodeURIComponent(category)}`}
+                  icon={<Tag className="h-5 w-5" />}
+                  label={category}
+                  isActive={location.pathname === '/ingredients' && location.search.includes(`category=${encodeURIComponent(category)}`)}
+                />
+              ))}
+            </>
+          )}
         </nav>
       </div>
     </div>
