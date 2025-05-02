@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthComponents';
@@ -266,28 +265,36 @@ export const Sidebar = () => {
         // For now we're using the static items defined above
         console.log('Would fetch navigation items from database here');
         
-        // Fixed approach: Get all categories then filter unique ones in JavaScript
+        // We cannot fetch 'category' because it doesn't exist in the table schema
         const { data: ingredients, error } = await supabase
           .from('ingredients')
-          .select('category');
+          .select('name'); // Select a column that actually exists
           
         if (error) {
-          console.error('Error fetching ingredients categories:', error);
+          console.error('Error fetching ingredients data:', error);
         } else if (ingredients && ingredients.length > 0) {
-          console.log('Ingredients categories retrieved:', ingredients);
+          console.log('Ingredients data retrieved:', ingredients);
           
+          // Since we don't have category column, we can't create category-based navigation
+          // We would need to add a category column to the ingredients table
+          // For now, we'll just use the static navigation items
+          console.log('Using default navigation items until category column is added');
+          
+          // If a category column is added to the ingredients table in the future,
+          // uncomment and modify this code:
+          /*
           // Extract unique categories using JavaScript (instead of SQL distinct)
           const uniqueCategories = [...new Set(ingredients.map(item => item.category))];
           console.log('Unique categories:', uniqueCategories);
           
-          // You could use these to create dynamic navigation items
-          // Example (uncomment to use):
-          // const categoryNavItems = uniqueCategories.map(category => ({
-          //   path: `/category/${category}`,
-          //   label: category,
-          //   icon: Tag
-          // }));
-          // setNavItems([...navItems, ...categoryNavItems]);
+          // Create navigation items based on categories
+          const categoryNavItems = uniqueCategories.map(category => ({
+            path: `/category/${category}`,
+            label: category,
+            icon: Tag
+          }));
+          setNavItems([...navItems, ...categoryNavItems]);
+          */
         }
       } catch (error) {
         console.error('Error fetching navigation items:', error);
