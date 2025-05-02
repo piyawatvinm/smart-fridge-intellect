@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthComponents';
@@ -265,17 +266,28 @@ export const Sidebar = () => {
         // For now we're using the static items defined above
         console.log('Would fetch navigation items from database here');
         
-        // Example of how you might fetch ingredients categories to create dynamic navigation
+        // Fixed approach: Get all categories then filter unique ones in JavaScript
         const { data: ingredients, error } = await supabase
           .from('ingredients')
-          .select('category')
-          .distinct();
+          .select('category');
           
         if (error) {
           console.error('Error fetching ingredients categories:', error);
-        } else if (ingredients) {
+        } else if (ingredients && ingredients.length > 0) {
           console.log('Ingredients categories retrieved:', ingredients);
+          
+          // Extract unique categories using JavaScript (instead of SQL distinct)
+          const uniqueCategories = [...new Set(ingredients.map(item => item.category))];
+          console.log('Unique categories:', uniqueCategories);
+          
           // You could use these to create dynamic navigation items
+          // Example (uncomment to use):
+          // const categoryNavItems = uniqueCategories.map(category => ({
+          //   path: `/category/${category}`,
+          //   label: category,
+          //   icon: Tag
+          // }));
+          // setNavItems([...navItems, ...categoryNavItems]);
         }
       } catch (error) {
         console.error('Error fetching navigation items:', error);
