@@ -1,5 +1,4 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthComponents';
 import { 
@@ -19,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { toast } from 'sonner';
+import { supabase } from "@/integrations/supabase/client";
 
 export const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -26,6 +26,22 @@ export const Navbar = () => {
   const user = getUser();
   const location = useLocation();
   const [notifications, setNotifications] = useState(2);
+  const [menuItems, setMenuItems] = useState([]);
+
+  useEffect(() => {
+    // Fetch navigation items from database
+    const fetchMenuItems = async () => {
+      try {
+        // This is where you would connect to your Supabase database
+        // For now, we're keeping the hardcoded items since we don't have a navigation table yet
+        console.log('Would fetch menu items from database here');
+      } catch (error) {
+        console.error('Error fetching menu items:', error);
+      }
+    };
+
+    fetchMenuItems();
+  }, []);
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -233,6 +249,41 @@ const MobileNavItem = ({ to, icon, label, isActive }: MobileNavItemProps) => {
 
 export const Sidebar = () => {
   const location = useLocation();
+  const [navItems, setNavItems] = useState([
+    { path: '/dashboard', label: 'Dashboard', icon: Home },
+    { path: '/receipt', label: 'Upload Receipt', icon: Receipt },
+    { path: '/ingredients', label: 'Ingredients', icon: List },
+    { path: '/stores', label: 'Stores', icon: ShoppingBag },
+    { path: '/recommendations', label: 'Recommendations', icon: ChefHat },
+  ]);
+  
+  useEffect(() => {
+    // Here we would fetch the navigation items from the database
+    const fetchNavigationItems = async () => {
+      try {
+        // This would connect to your ingredients table or a navigation table if you create one
+        // For now we're using the static items defined above
+        console.log('Would fetch navigation items from database here');
+        
+        // Example of how you might fetch ingredients categories to create dynamic navigation
+        const { data: ingredients, error } = await supabase
+          .from('ingredients')
+          .select('category')
+          .distinct();
+          
+        if (error) {
+          console.error('Error fetching ingredients categories:', error);
+        } else if (ingredients) {
+          console.log('Ingredients categories retrieved:', ingredients);
+          // You could use these to create dynamic navigation items
+        }
+      } catch (error) {
+        console.error('Error fetching navigation items:', error);
+      }
+    };
+    
+    fetchNavigationItems();
+  }, []);
   
   return (
     <div className="hidden md:flex flex-col h-screen bg-white border-r border-gray-200 w-64 sticky top-0">
@@ -241,36 +292,18 @@ export const Sidebar = () => {
           <h1 className="text-xl font-bold text-fridge-blue">Smart Fridge</h1>
         </div>
         <nav className="mt-8 flex-1 px-4 space-y-2">
-          <SidebarItem
-            to="/dashboard"
-            icon={<Home className="h-5 w-5" />}
-            label="Dashboard"
-            isActive={location.pathname === '/dashboard'}
-          />
-          <SidebarItem
-            to="/receipt"
-            icon={<Receipt className="h-5 w-5" />}
-            label="Upload Receipt"
-            isActive={location.pathname === '/receipt'}
-          />
-          <SidebarItem
-            to="/ingredients"
-            icon={<List className="h-5 w-5" />}
-            label="Ingredients"
-            isActive={location.pathname === '/ingredients'}
-          />
-          <SidebarItem
-            to="/stores"
-            icon={<ShoppingBag className="h-5 w-5" />}
-            label="Stores"
-            isActive={location.pathname === '/stores'}
-          />
-          <SidebarItem
-            to="/recommendations"
-            icon={<ChefHat className="h-5 w-5" />}
-            label="Recommendations"
-            isActive={location.pathname === '/recommendations'}
-          />
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            return (
+              <SidebarItem
+                key={item.path}
+                to={item.path}
+                icon={<Icon className="h-5 w-5" />}
+                label={item.label}
+                isActive={location.pathname === item.path}
+              />
+            );
+          })}
         </nav>
       </div>
     </div>
