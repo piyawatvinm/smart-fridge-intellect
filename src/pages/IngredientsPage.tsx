@@ -1,6 +1,5 @@
-
 import { Layout } from "@/components/LayoutComponents";
-import { useState, useEffect } from "react";
+import { useState, useEffect, FormEvent } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/components/AuthComponents";
 
 interface Ingredient {
   id: string;
@@ -30,128 +31,205 @@ const IngredientsPage = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCategory, setFilterCategory] = useState('all');
+  const [dialogOpen, setDialogOpen] = useState(false);
   
-  // Mock data initialization
-  useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      const mockIngredients: Ingredient[] = [
-        {
-          id: '1',
-          name: 'Milk',
-          quantity: 1,
-          unit: 'carton',
-          expiryDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000), // 2 days from now
-          category: 'Dairy',
-          purchaseDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
-          daysLeft: 2,
-          status: 'expiring-soon'
-        },
-        {
-          id: '2',
-          name: 'Eggs',
-          quantity: 12,
-          unit: 'pieces',
-          expiryDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
-          category: 'Dairy',
-          purchaseDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
-          daysLeft: 7,
-          status: 'fresh'
-        },
-        {
-          id: '3',
-          name: 'Bread',
-          quantity: 1,
-          unit: 'loaf',
-          expiryDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
-          category: 'Bakery',
-          purchaseDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
-          daysLeft: 0,
-          status: 'expired'
-        },
-        {
-          id: '4',
-          name: 'Tomatoes',
-          quantity: 5,
-          unit: 'pieces',
-          expiryDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days from now
-          category: 'Vegetables',
-          purchaseDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
-          daysLeft: 3,
-          status: 'fresh'
-        },
-        {
-          id: '5',
-          name: 'Chicken',
-          quantity: 1,
-          unit: 'kg',
-          expiryDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000), // 1 day from now
-          category: 'Meat',
-          purchaseDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
-          daysLeft: 1,
-          status: 'expiring-soon'
-        },
-        {
-          id: '6',
-          name: 'Cheese',
-          quantity: 1,
-          unit: 'pack',
-          expiryDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days from now
-          category: 'Dairy',
-          purchaseDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
-          daysLeft: 14,
-          status: 'fresh'
-        },
-        {
-          id: '7',
-          name: 'Yogurt',
-          quantity: 4,
-          unit: 'cups',
-          expiryDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000), // 5 days from now
-          category: 'Dairy',
-          purchaseDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
-          daysLeft: 5,
-          status: 'fresh'
-        },
-        {
-          id: '8',
-          name: 'Apples',
-          quantity: 6,
-          unit: 'pieces',
-          expiryDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000), // 10 days from now
-          category: 'Fruits',
-          purchaseDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
-          daysLeft: 10,
-          status: 'fresh'
-        },
-        {
-          id: '9',
-          name: 'Pasta',
-          quantity: 1,
-          unit: 'pack',
-          expiryDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90 days from now
-          category: 'Pantry',
-          purchaseDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000), // 10 days ago
-          daysLeft: 90,
-          status: 'fresh'
-        },
-        {
-          id: '10',
-          name: 'Ground Beef',
-          quantity: 500,
-          unit: 'g',
-          expiryDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
-          category: 'Meat',
-          purchaseDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
-          daysLeft: 0,
-          status: 'expired'
-        }
-      ];
+  // Form state
+  const [newIngredient, setNewIngredient] = useState({
+    name: '',
+    quantity: 1,
+    unit: 'piece',
+    category: 'Dairy',
+    expiryDate: ''
+  });
+  
+  const { getUser } = useAuth();
+  const user = getUser();
+  
+  // Load ingredients from database
+  const loadIngredients = async () => {
+    setLoading(true);
+    
+    try {
+      // Fetch ingredients from Supabase
+      const { data, error } = await supabase
+        .from('ingredients')
+        .select('*');
       
-      setIngredients(mockIngredients);
-      setFilteredIngredients(mockIngredients);
+      if (error) {
+        throw error;
+      }
+      
+      if (data && data.length > 0) {
+        // Transform DB data into the Ingredient interface
+        const transformedData: Ingredient[] = data.map(item => {
+          const expiryDate = new Date(item.expiry_date);
+          const purchaseDate = item.created_at ? new Date(item.created_at) : new Date();
+          const today = new Date();
+          
+          // Calculate days left until expiry
+          const diffTime = expiryDate.getTime() - today.getTime();
+          const daysLeft = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          
+          // Determine status based on days left
+          let status: 'fresh' | 'expiring-soon' | 'expired';
+          if (daysLeft <= 0) {
+            status = 'expired';
+          } else if (daysLeft <= 3) {
+            status = 'expiring-soon';
+          } else {
+            status = 'fresh';
+          }
+          
+          return {
+            id: item.id,
+            name: item.name,
+            quantity: Number(item.quantity),
+            unit: item.unit,
+            expiryDate,
+            // Since there's no category column yet, we'll use a mock one
+            category: 'Dairy', // Temporary default
+            purchaseDate,
+            daysLeft: daysLeft > 0 ? daysLeft : 0,
+            status
+          };
+        });
+        
+        setIngredients(transformedData);
+        setFilteredIngredients(transformedData);
+      } else {
+        // If no data, load mock data
+        loadMockData();
+      }
+    } catch (error) {
+      console.error('Error fetching ingredients:', error);
+      toast.error("Failed to load ingredients. Using mock data.");
+      loadMockData();
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
+  };
+  
+  // Load mock data as fallback
+  const loadMockData = () => {
+    const mockIngredients: Ingredient[] = [
+      {
+        id: '1',
+        name: 'Milk',
+        quantity: 1,
+        unit: 'carton',
+        expiryDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000), // 2 days from now
+        category: 'Dairy',
+        purchaseDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
+        daysLeft: 2,
+        status: 'expiring-soon'
+      },
+      {
+        id: '2',
+        name: 'Eggs',
+        quantity: 12,
+        unit: 'pieces',
+        expiryDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
+        category: 'Dairy',
+        purchaseDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
+        daysLeft: 7,
+        status: 'fresh'
+      },
+      {
+        id: '3',
+        name: 'Bread',
+        quantity: 1,
+        unit: 'loaf',
+        expiryDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
+        category: 'Bakery',
+        purchaseDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
+        daysLeft: 0,
+        status: 'expired'
+      },
+      {
+        id: '4',
+        name: 'Tomatoes',
+        quantity: 5,
+        unit: 'pieces',
+        expiryDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days from now
+        category: 'Vegetables',
+        purchaseDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
+        daysLeft: 3,
+        status: 'fresh'
+      },
+      {
+        id: '5',
+        name: 'Chicken',
+        quantity: 1,
+        unit: 'kg',
+        expiryDate: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000), // 1 day from now
+        category: 'Meat',
+        purchaseDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
+        daysLeft: 1,
+        status: 'expiring-soon'
+      },
+      {
+        id: '6',
+        name: 'Cheese',
+        quantity: 1,
+        unit: 'pack',
+        expiryDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days from now
+        category: 'Dairy',
+        purchaseDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000), // 1 day ago
+        daysLeft: 14,
+        status: 'fresh'
+      },
+      {
+        id: '7',
+        name: 'Yogurt',
+        quantity: 4,
+        unit: 'cups',
+        expiryDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000), // 5 days from now
+        category: 'Dairy',
+        purchaseDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
+        daysLeft: 5,
+        status: 'fresh'
+      },
+      {
+        id: '8',
+        name: 'Apples',
+        quantity: 6,
+        unit: 'pieces',
+        expiryDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000), // 10 days from now
+        category: 'Fruits',
+        purchaseDate: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000), // 3 days ago
+        daysLeft: 10,
+        status: 'fresh'
+      },
+      {
+        id: '9',
+        name: 'Pasta',
+        quantity: 1,
+        unit: 'pack',
+        expiryDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000), // 90 days from now
+        category: 'Pantry',
+        purchaseDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000), // 10 days ago
+        daysLeft: 90,
+        status: 'fresh'
+      },
+      {
+        id: '10',
+        name: 'Ground Beef',
+        quantity: 500,
+        unit: 'g',
+        expiryDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000), // 2 days ago
+        category: 'Meat',
+        purchaseDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000), // 5 days ago
+        daysLeft: 0,
+        status: 'expired'
+      }
+    ];
+    
+    setIngredients(mockIngredients);
+    setFilteredIngredients(mockIngredients);
+  };
+  
+  useEffect(() => {
+    loadIngredients();
   }, []);
   
   // Filter ingredients when search term or category filter changes
@@ -195,9 +273,98 @@ const IngredientsPage = () => {
     }
   };
 
-  const deleteIngredient = (id: string) => {
-    setIngredients(ingredients.filter(item => item.id !== id));
-    toast.success("Ingredient removed successfully");
+  const deleteIngredient = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('ingredients')
+        .delete()
+        .eq('id', id);
+      
+      if (error) {
+        throw error;
+      }
+      
+      // Update local state
+      setIngredients(ingredients.filter(item => item.id !== id));
+      toast.success("Ingredient removed successfully");
+    } catch (error) {
+      console.error('Error deleting ingredient:', error);
+      toast.error("Failed to remove ingredient");
+    }
+  };
+  
+  // Handle form input changes
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { id, value } = e.target;
+    setNewIngredient({
+      ...newIngredient,
+      [id]: value
+    });
+  };
+  
+  // Handle select changes
+  const handleSelectChange = (id: string, value: string) => {
+    setNewIngredient({
+      ...newIngredient,
+      [id]: value
+    });
+  };
+  
+  // Save new ingredient
+  const saveIngredient = async () => {
+    try {
+      if (!newIngredient.name) {
+        toast.error("Please enter a name for the ingredient");
+        return;
+      }
+      
+      if (!newIngredient.expiryDate) {
+        toast.error("Please enter an expiry date");
+        return;
+      }
+      
+      // Check if user is authenticated
+      if (!user) {
+        toast.error("You must be logged in to save ingredients");
+        return;
+      }
+      
+      const { data, error } = await supabase
+        .from('ingredients')
+        .insert([
+          {
+            name: newIngredient.name,
+            quantity: newIngredient.quantity,
+            unit: newIngredient.unit,
+            expiry_date: newIngredient.expiryDate,
+            user_id: user.id
+          }
+        ])
+        .select();
+      
+      if (error) {
+        throw error;
+      }
+      
+      toast.success("New ingredient added successfully");
+      setDialogOpen(false);
+      
+      // Reset form
+      setNewIngredient({
+        name: '',
+        quantity: 1,
+        unit: 'piece',
+        category: 'Dairy',
+        expiryDate: ''
+      });
+      
+      // Reload ingredients
+      loadIngredients();
+      
+    } catch (error) {
+      console.error('Error saving ingredient:', error);
+      toast.error("Failed to save ingredient");
+    }
   };
 
   // Extract unique categories for the filter dropdown
@@ -248,7 +415,7 @@ const IngredientsPage = () => {
                     </SelectContent>
                   </Select>
                   
-                  <Dialog>
+                  <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                     <DialogTrigger asChild>
                       <Button className="bg-fridge-blue hover:bg-fridge-blue-light">
                         <Plus className="h-4 w-4 mr-2" />
@@ -267,19 +434,36 @@ const IngredientsPage = () => {
                           <Label htmlFor="name" className="text-right">
                             Name
                           </Label>
-                          <Input id="name" placeholder="e.g., Milk" className="col-span-3" />
+                          <Input 
+                            id="name" 
+                            placeholder="e.g., Milk" 
+                            className="col-span-3" 
+                            value={newIngredient.name}
+                            onChange={handleInputChange}
+                          />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
                           <Label htmlFor="quantity" className="text-right">
                             Quantity
                           </Label>
-                          <Input id="quantity" type="number" defaultValue="1" min="1" className="col-span-3" />
+                          <Input 
+                            id="quantity" 
+                            type="number" 
+                            defaultValue="1" 
+                            min="1" 
+                            className="col-span-3"
+                            value={newIngredient.quantity}
+                            onChange={handleInputChange}
+                          />
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
                           <Label htmlFor="unit" className="text-right">
                             Unit
                           </Label>
-                          <Select defaultValue="piece">
+                          <Select 
+                            value={newIngredient.unit}
+                            onValueChange={(value) => handleSelectChange('unit', value)}
+                          >
                             <SelectTrigger className="col-span-3">
                               <SelectValue placeholder="Select unit" />
                             </SelectTrigger>
@@ -297,7 +481,10 @@ const IngredientsPage = () => {
                           <Label htmlFor="category" className="text-right">
                             Category
                           </Label>
-                          <Select defaultValue="Dairy">
+                          <Select 
+                            value={newIngredient.category}
+                            onValueChange={(value) => handleSelectChange('category', value)}
+                          >
                             <SelectTrigger className="col-span-3">
                               <SelectValue placeholder="Select category" />
                             </SelectTrigger>
@@ -312,22 +499,30 @@ const IngredientsPage = () => {
                           </Select>
                         </div>
                         <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="expiry" className="text-right">
+                          <Label htmlFor="expiryDate" className="text-right">
                             Expiry Date
                           </Label>
-                          <Input id="expiry" type="date" className="col-span-3" />
+                          <Input 
+                            id="expiryDate" 
+                            type="date" 
+                            className="col-span-3"
+                            value={newIngredient.expiryDate}
+                            onChange={handleInputChange}
+                          />
                         </div>
                       </div>
                       <DialogFooter>
-                        <Button type="button" variant="outline">
+                        <Button 
+                          type="button" 
+                          variant="outline"
+                          onClick={() => setDialogOpen(false)}
+                        >
                           Cancel
                         </Button>
                         <Button 
                           type="button" 
                           className="bg-fridge-blue hover:bg-fridge-blue-light"
-                          onClick={() => {
-                            toast.success("New ingredient added successfully");
-                          }}
+                          onClick={saveIngredient}
                         >
                           Save Ingredient
                         </Button>
