@@ -41,6 +41,33 @@ export const Navbar = () => {
     toast.success('Notifications cleared');
   };
 
+  // Get the first initial of the user's name or use a fallback
+  const getUserInitial = () => {
+    if (user?.name && typeof user.name === 'string') {
+      return user.name.charAt(0);
+    }
+    
+    if (user?.email && typeof user.email === 'string') {
+      return user.email.charAt(0);
+    }
+    
+    return 'U'; // Default fallback
+  };
+
+  // Get display name with fallbacks
+  const getDisplayName = () => {
+    if (user?.name) {
+      return user.name;
+    }
+    
+    if (user?.email) {
+      // Extract name part from email
+      return user.email.split('@')[0];
+    }
+    
+    return 'User';
+  };
+
   return (
     <nav className="bg-white shadow-sm sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -71,10 +98,10 @@ export const Navbar = () => {
               <Avatar>
                 <AvatarImage src="" />
                 <AvatarFallback className="bg-fridge-blue text-white">
-                  {user?.name.charAt(0) || 'U'}
+                  {getUserInitial()}
                 </AvatarFallback>
               </Avatar>
-              <span className="text-sm font-medium text-gray-700">{user?.name || 'User'}</span>
+              <span className="text-sm font-medium text-gray-700">{getDisplayName()}</span>
             </div>
             
             <Button 
@@ -110,10 +137,10 @@ export const Navbar = () => {
                 <Avatar>
                   <AvatarImage src="" />
                   <AvatarFallback className="bg-fridge-blue text-white">
-                    {user?.name.charAt(0) || 'U'}
+                    {getUserInitial()}
                   </AvatarFallback>
                 </Avatar>
-                <span className="text-sm font-medium text-gray-700">{user?.name || 'User'}</span>
+                <span className="text-sm font-medium text-gray-700">{getDisplayName()}</span>
               </div>
               
               <div className="flex items-center space-x-4">
