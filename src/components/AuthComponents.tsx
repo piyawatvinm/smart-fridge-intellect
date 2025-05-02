@@ -1,48 +1,11 @@
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from 'sonner';
 import { User, KeyRound, AtSign, Eye, EyeOff } from 'lucide-react';
-
-// Mock auth service - in a real app, this would connect to a backend
-const mockAuth = {
-  login: (email: string, password: string) => {
-    return new Promise<{success: boolean, message: string}>((resolve) => {
-      setTimeout(() => {
-        if (email === 'user@example.com' && password === 'password') {
-          localStorage.setItem('isAuthenticated', 'true');
-          localStorage.setItem('user', JSON.stringify({email, name: 'Demo User'}));
-          resolve({success: true, message: 'Login successful'});
-        } else {
-          resolve({success: false, message: 'Invalid credentials'});
-        }
-      }, 1000);
-    });
-  },
-  register: (name: string, email: string, password: string) => {
-    return new Promise<{success: boolean, message: string}>((resolve) => {
-      setTimeout(() => {
-        localStorage.setItem('isAuthenticated', 'true');
-        localStorage.setItem('user', JSON.stringify({email, name}));
-        resolve({success: true, message: 'Registration successful'});
-      }, 1000);
-    });
-  },
-  logout: () => {
-    localStorage.removeItem('isAuthenticated');
-    localStorage.removeItem('user');
-  },
-  isAuthenticated: () => {
-    return localStorage.getItem('isAuthenticated') === 'true';
-  },
-  getUser: () => {
-    const user = localStorage.getItem('user');
-    return user ? JSON.parse(user) : null;
-  }
-};
+import { supabase } from '@/integrations/supabase/client';
 
 export const Login = () => {
   const navigate = useNavigate();
@@ -56,16 +19,20 @@ export const Login = () => {
     setLoading(true);
     
     try {
-      const result = await mockAuth.login(email, password);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
       
-      if (result.success) {
-        toast.success(result.message);
-        navigate('/dashboard');
+      if (error) {
+        toast.error(error.message);
       } else {
-        toast.error(result.message);
+        toast.success('Login successful');
+        navigate('/dashboard');
       }
     } catch (error) {
-      toast.error('An error occurred during login');
+      toast.error('An unexpected error occurred');
+      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -157,16 +124,26 @@ export const Register = () => {
     setLoading(true);
     
     try {
-      const result = await mockAuth.register(name, email, password);
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            first_name: name.split(' ')[0],
+            last_name: name.split(' ').slice(1).join(' ')
+          }
+        }
+      });
       
-      if (result.success) {
-        toast.success(result.message);
-        navigate('/dashboard');
+      if (error) {
+        toast.error(error.message);
       } else {
-        toast.error(result.message);
+        toast.success('Registration successful! Please check your email for confirmation.');
+        navigate('/login');
       }
     } catch (error) {
-      toast.error('An error occurred during registration');
+      toast.error('An unexpected error occurred');
+      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -260,28 +237,79 @@ export const Register = () => {
 
 export const useAuth = () => {
   const navigate = useNavigate();
+  const [authState, setAuthState] = useState({
+    loading: true,
+    user: null as any
+  });
+
+  useEffect(() => {
+    // Get initial session
+    const getInitialSession = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        setAuthState({
+          loading: false,
+          user: data?.session?.user || null
+        });
+      } catch (error) {
+        console.error("Error getting session:", error);
+        setAuthState({
+          loading: false,
+          user: null
+        });
+      }
+    };
+
+    getInitialSession();
+
+    // Set up auth subscription
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        setAuthState({
+          loading: false,
+          user: session?.user || null
+        });
+      }
+    );
+
+    return () => {
+      subscription?.unsubscribe();
+    };
+  }, []);
   
   const login = async (email: string, password: string) => {
-    const result = await mockAuth.login(email, password);
-    return result;
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    return { data, error };
   };
   
   const register = async (name: string, email: string, password: string) => {
-    const result = await mockAuth.register(name, email, password);
-    return result;
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          first_name: name.split(' ')[0],
+          last_name: name.split(' ').slice(1).join(' ')
+        }
+      }
+    });
+    return { data, error };
   };
   
-  const logout = () => {
-    mockAuth.logout();
-    navigate('/login');
+  const logout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (!error) {
+      navigate('/login');
+    }
+    return { error };
   };
   
   const isAuthenticated = () => {
-    return mockAuth.isAuthenticated();
+    return !!authState.user;
   };
   
   const getUser = () => {
-    return mockAuth.getUser();
+    return authState.user;
   };
   
   return {
@@ -289,6 +317,8 @@ export const useAuth = () => {
     register,
     logout,
     isAuthenticated,
-    getUser
+    getUser,
+    loading: authState.loading,
+    user: authState.user
   };
 };
