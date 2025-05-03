@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, createContext, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,28 +7,157 @@ import { toast } from 'sonner';
 import { User, KeyRound, AtSign, Eye, EyeOff } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 
+// Create auth context
+const AuthContext = createContext<ReturnType<typeof useAuthProvider> | undefined>(undefined);
+
+// Auth provider hook
+const useAuthProvider = () => {
+  const navigate = useNavigate();
+  const [authState, setAuthState] = useState({
+    loading: true,
+    user: null as any
+  });
+
+  useEffect(() => {
+    // Get initial session
+    const getInitialSession = async () => {
+      try {
+        const { data } = await supabase.auth.getSession();
+        setAuthState({
+          loading: false,
+          user: data?.session?.user || null
+        });
+      } catch (error) {
+        console.error("Error getting session:", error);
+        setAuthState({
+          loading: false,
+          user: null
+        });
+      }
+    };
+
+    getInitialSession();
+
+    // Set up auth subscription
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log("Auth state changed:", event, session?.user?.email);
+        setAuthState({
+          loading: false,
+          user: session?.user || null
+        });
+        
+        // Redirect to dashboard on login
+        if (event === 'SIGNED_IN' && session) {
+          navigate('/dashboard');
+        } else if (event === 'SIGNED_OUT') {
+          navigate('/login');
+        }
+      }
+    );
+
+    return () => {
+      subscription?.unsubscribe();
+    };
+  }, [navigate]);
+  
+  const login = async (email: string, password: string) => {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (!error && data.session) {
+      navigate('/dashboard');
+    }
+    return { data, error };
+  };
+  
+  const register = async (name: string, email: string, password: string) => {
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          first_name: name.split(' ')[0],
+          last_name: name.split(' ').slice(1).join(' ')
+        }
+      }
+    });
+    return { data, error };
+  };
+  
+  const logout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (!error) {
+      navigate('/login');
+    }
+    return { error };
+  };
+  
+  const isAuthenticated = async () => {
+    const { data } = await supabase.auth.getSession();
+    return !!data.session?.user;
+  };
+  
+  const getUser = () => {
+    return authState.user;
+  };
+  
+  return {
+    login,
+    register,
+    logout,
+    isAuthenticated,
+    getUser,
+    loading: authState.loading,
+    user: authState.user
+  };
+};
+
+// Auth provider component
+export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+  const auth = useAuthProvider();
+  
+  return (
+    <AuthContext.Provider value={auth}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+// Hook to use auth context
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === undefined) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
+
 export const Login = () => {
   const navigate = useNavigate();
+  const { login, user } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  
+  useEffect(() => {
+    // If user is already authenticated, redirect to dashboard
+    if (user) {
+      navigate('/dashboard');
+    }
+  }, [user, navigate]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
+      const { error } = await login(email, password);
       
       if (error) {
         toast.error(error.message);
       } else {
         toast.success('Login successful');
-        navigate('/dashboard');
+        // navigate is called in the login function and in the auth state change handler
       }
     } catch (error) {
       toast.error('An unexpected error occurred');
@@ -113,27 +242,26 @@ export const Login = () => {
 
 export const Register = () => {
   const navigate = useNavigate();
+  const { register, user } = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  
+  useEffect(() => {
+    // If user is already authenticated, redirect to dashboard
+    if (user) {
+      navigate('/dashboard');
+    }
+  }, [user, navigate]);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            first_name: name.split(' ')[0],
-            last_name: name.split(' ').slice(1).join(' ')
-          }
-        }
-      });
+      const { data, error } = await register(name, email, password);
       
       if (error) {
         toast.error(error.message);
@@ -233,92 +361,4 @@ export const Register = () => {
       </Card>
     </div>
   );
-};
-
-export const useAuth = () => {
-  const navigate = useNavigate();
-  const [authState, setAuthState] = useState({
-    loading: true,
-    user: null as any
-  });
-
-  useEffect(() => {
-    // Get initial session
-    const getInitialSession = async () => {
-      try {
-        const { data } = await supabase.auth.getSession();
-        setAuthState({
-          loading: false,
-          user: data?.session?.user || null
-        });
-      } catch (error) {
-        console.error("Error getting session:", error);
-        setAuthState({
-          loading: false,
-          user: null
-        });
-      }
-    };
-
-    getInitialSession();
-
-    // Set up auth subscription
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setAuthState({
-          loading: false,
-          user: session?.user || null
-        });
-      }
-    );
-
-    return () => {
-      subscription?.unsubscribe();
-    };
-  }, []);
-  
-  const login = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    return { data, error };
-  };
-  
-  const register = async (name: string, email: string, password: string) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          first_name: name.split(' ')[0],
-          last_name: name.split(' ').slice(1).join(' ')
-        }
-      }
-    });
-    return { data, error };
-  };
-  
-  const logout = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (!error) {
-      navigate('/login');
-    }
-    return { error };
-  };
-  
-  const isAuthenticated = () => {
-    return !!authState.user;
-  };
-  
-  const getUser = () => {
-    return authState.user;
-  };
-  
-  return {
-    login,
-    register,
-    logout,
-    isAuthenticated,
-    getUser,
-    loading: authState.loading,
-    user: authState.user
-  };
 };
