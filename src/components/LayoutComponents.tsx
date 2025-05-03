@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthComponents';
@@ -13,7 +14,8 @@ import {
   User,
   Bell,
   Search,
-  Tag
+  Tag,
+  ShoppingCart
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -238,6 +240,7 @@ export const Sidebar = () => {
     { path: '/dashboard', label: 'Dashboard', icon: Home },
     { path: '/receipt', label: 'Upload Receipt', icon: Receipt },
     { path: '/ingredients', label: 'Ingredients', icon: List },
+    { path: '/shopping-list', label: 'Shopping Lists', icon: ShoppingCart },
     { path: '/stores', label: 'Stores', icon: ShoppingBag },
     { path: '/recommendations', label: 'Recommendations', icon: ChefHat },
   ]);

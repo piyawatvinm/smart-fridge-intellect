@@ -14,6 +14,7 @@ import IngredientsPage from "./pages/IngredientsPage";
 import StoresPage from "./pages/StoresPage";
 import RecommendationsPage from "./pages/RecommendationsPage";
 import WelcomePage from "./pages/WelcomePage";
+import ShoppingListPage from "./pages/ShoppingListPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider } from "./components/AuthComponents";
 import { useState } from "react";
@@ -49,6 +50,7 @@ const App = () => {
                 <Route path="/receipt" element={<ReceiptPage />} />
                 <Route path="/ingredients" element={<IngredientsPage />} />
                 <Route path="/stores" element={<StoresPage />} />
+                <Route path="/shopping-list" element={<ShoppingListPage />} />
                 <Route path="/recommendations" element={<RecommendationsPage />} />
               </Route>
               

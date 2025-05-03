@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 // Helper function to determine category based on item name
@@ -110,6 +109,122 @@ export const fetchUniqueCategories = async (userId: string) => {
     return categories;
   } catch (error) {
     console.error('Error fetching categories:', error);
+    return [];
+  }
+};
+
+// Create a new shopping list
+export const createShoppingList = async (name: string, userId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('shopping_lists')
+      .insert([{ name, user_id: userId }])
+      .select();
+    
+    if (error) throw error;
+    return data[0];
+  } catch (error) {
+    console.error('Error creating shopping list:', error);
+    throw error;
+  }
+};
+
+// Fetch user's shopping lists
+export const fetchUserShoppingLists = async (userId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('shopping_lists')
+      .select('*')
+      .eq('user_id', userId);
+    
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching shopping lists:', error);
+    return [];
+  }
+};
+
+// Add item to shopping list
+export const addShoppingListItem = async (
+  shoppingListId: string, 
+  name: string, 
+  quantity: number, 
+  unit: string, 
+  storeId?: string
+) => {
+  try {
+    const { data, error } = await supabase
+      .from('shopping_list_items')
+      .insert([{ 
+        shopping_list_id: shoppingListId, 
+        name, 
+        quantity, 
+        unit,
+        store_id: storeId 
+      }])
+      .select();
+    
+    if (error) throw error;
+    return data[0];
+  } catch (error) {
+    console.error('Error adding shopping list item:', error);
+    throw error;
+  }
+};
+
+// Update shopping list item's store
+export const updateShoppingListItemStore = async (
+  itemId: string,
+  storeId: string | null
+) => {
+  try {
+    const { data, error } = await supabase
+      .from('shopping_list_items')
+      .update({ store_id: storeId })
+      .eq('id', itemId)
+      .select();
+    
+    if (error) throw error;
+    return data[0];
+  } catch (error) {
+    console.error('Error updating shopping list item store:', error);
+    throw error;
+  }
+};
+
+// Mark shopping list item as purchased/unpurchased
+export const toggleShoppingListItemPurchased = async (
+  itemId: string,
+  purchased: boolean
+) => {
+  try {
+    const { data, error } = await supabase
+      .from('shopping_list_items')
+      .update({ purchased })
+      .eq('id', itemId)
+      .select();
+    
+    if (error) throw error;
+    return data[0];
+  } catch (error) {
+    console.error('Error updating shopping list item purchased status:', error);
+    throw error;
+  }
+};
+
+// Fetch shopping list items
+export const fetchShoppingListItems = async (shoppingListId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('shopping_list_items')
+      .select('*, stores(*)')
+      .eq('shopping_list_id', shoppingListId);
+    
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('Error fetching shopping list items:', error);
     return [];
   }
 };
