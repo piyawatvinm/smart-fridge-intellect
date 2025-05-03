@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthComponents';
@@ -268,33 +267,23 @@ export const Sidebar = () => {
       if (!user) return;
       
       try {
+        // Use a direct SQL query since the category column might not be in the types yet
         const { data, error } = await supabase
           .from('ingredients')
-          .select('category')
-          .eq('user_id', user.id)
-          .not('category', 'is', null);
+          .select('*');
         
         if (error) {
           console.error('Error fetching ingredients categories:', error);
         } else if (data && data.length > 0) {
-          console.log('Ingredients data retrieved:', data);
+          // Extract unique categories, handling the case where category might be missing
+          const uniqueCategories = [...new Set(
+            data
+              .filter(item => item.category) // Make sure category exists
+              .map(item => item.category)
+          )];
           
-          // Extract unique categories
-          const uniqueCategories = [...new Set(data.map(item => item.category).filter(Boolean))];
           console.log('Unique categories:', uniqueCategories);
-          
           setCategories(uniqueCategories);
-
-          // We could create category-based navigation here if needed
-          /*
-          // Create navigation items based on categories
-          const categoryNavItems = uniqueCategories.map(category => ({
-            path: `/category/${category}`,
-            label: category,
-            icon: Tag
-          }));
-          setNavItems(prevItems => [...prevItems, ...categoryNavItems]);
-          */
         }
       } catch (error) {
         console.error('Error fetching categories:', error);

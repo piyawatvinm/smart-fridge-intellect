@@ -90,8 +90,8 @@ const IngredientsPage = () => {
             quantity: Number(item.quantity),
             unit: item.unit,
             expiryDate,
-            // Now we can use the category column from the database
-            category: item.category || 'Uncategorized', 
+            // Use the category if it exists, otherwise use a default value
+            category: (item as any).category || 'Uncategorized',
             purchaseDate,
             daysLeft: daysLeft > 0 ? daysLeft : 0,
             status

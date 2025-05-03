@@ -15,7 +15,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 interface Store {
   id: string;
   name: string;
-  address: string;
+  address: string | null;
+  user_id: string;
+  created_at?: string;
 }
 
 interface ReceiptItem {
@@ -47,6 +49,7 @@ const ReceiptPage = () => {
       if (!user) return;
       
       try {
+        // Using a properly typed from method for stores table
         const { data, error } = await supabase
           .from('stores')
           .select('*')
@@ -55,7 +58,14 @@ const ReceiptPage = () => {
         if (error) throw error;
         
         if (data) {
-          setStores(data);
+          // Convert data to Store type
+          const storesData: Store[] = data.map(store => ({
+            id: store.id,
+            name: store.name,
+            address: store.address || null,
+            user_id: store.user_id
+          }));
+          setStores(storesData);
         }
       } catch (error) {
         console.error('Error fetching stores:', error);
@@ -136,18 +146,32 @@ const ReceiptPage = () => {
     try {
       if (!newStoreName || !user) return;
       
+      // Create a new store with the minimum required fields
       const { data, error } = await supabase
         .from('stores')
         .insert([
-          { name: newStoreName, user_id: user.id }
+          { 
+            name: newStoreName, 
+            user_id: user.id,
+            address: null // Provide a default value for address
+          }
         ])
         .select();
       
       if (error) throw error;
       
-      if (data) {
-        setStores([...stores, data[0]]);
-        setSelectedStore(data[0].id);
+      if (data && data.length > 0) {
+        // Create a proper Store object
+        const newStore: Store = {
+          id: data[0].id,
+          name: data[0].name,
+          address: data[0].address || null,
+          user_id: data[0].user_id,
+          created_at: data[0].created_at
+        };
+        
+        setStores([...stores, newStore]);
+        setSelectedStore(newStore.id);
         setShowNewStoreInput(false);
         setNewStoreName("");
         toast.success("New store added!");
@@ -172,7 +196,8 @@ const ReceiptPage = () => {
           {
             store_id: selectedStore || null,
             total_amount: extractedItems.reduce((sum, item) => sum + item.price, 0),
-            user_id: user.id
+            user_id: user.id,
+            receipt_date: new Date().toISOString().split('T')[0]  // Add required receipt_date
           }
         ])
         .select();
