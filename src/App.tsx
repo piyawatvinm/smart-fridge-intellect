@@ -17,20 +17,19 @@ import WelcomePage from "./pages/WelcomePage";
 import ShoppingListPage from "./pages/ShoppingListPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider } from "./components/AuthComponents";
-import { useState } from "react";
+import React from "react";
+
+// Create a new QueryClient instance outside the component
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 const App = () => {
-  // Create a new QueryClient instance within the component function
-  // This ensures it's created in the correct React context
-  const [queryClient] = useState(() => new QueryClient({
-    defaultOptions: {
-      queries: {
-        refetchOnWindowFocus: false,
-        retry: 1,
-      },
-    },
-  }));
-
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
