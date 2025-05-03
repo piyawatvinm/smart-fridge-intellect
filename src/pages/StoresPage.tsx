@@ -1,24 +1,30 @@
-
 import { Layout } from "@/components/LayoutComponents";
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, ExternalLink, Star, MapPin, ShoppingBag } from "lucide-react";
+import { Search, ExternalLink, Star, MapPin, ShoppingBag, PlusCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/components/AuthComponents";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { useForm } from "react-hook-form";
 
 interface Store {
   id: string;
   name: string;
-  type: 'grocery' | 'supermarket' | 'convenience' | 'specialty';
-  distance: number;
-  rating: number;
+  type?: 'grocery' | 'supermarket' | 'convenience' | 'specialty';
+  distance?: number;
+  rating?: number;
   address: string;
-  logo: string;
-  featured: boolean;
-  openHours: string;
+  logo?: string;
+  featured?: boolean;
+  openHours?: string;
   promotions?: string[];
+  user_id: string;
 }
 
 const StoresPage = () => {
@@ -26,111 +32,74 @@ const StoresPage = () => {
   const [filteredStores, setFilteredStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const { getUser } = useAuth();
+  const user = getUser();
   
-  // Mock data initialization
+  const form = useForm({
+    defaultValues: {
+      name: '',
+      address: '',
+    }
+  });
+  
+  // Fetch stores from Supabase
   useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      const mockStores: Store[] = [
-        {
-          id: '1',
-          name: 'Whole Foods Market',
-          type: 'supermarket',
-          distance: 1.2,
-          rating: 4.5,
-          address: '123 Market St, San Francisco, CA',
-          logo: 'https://via.placeholder.com/50',
-          featured: true,
-          openHours: '8:00 AM - 10:00 PM',
-          promotions: ['20% off organic produce', 'Buy one get one free on select dairy']
-        },
-        {
-          id: '2',
-          name: 'Trader Joe\'s',
-          type: 'grocery',
-          distance: 0.8,
-          rating: 4.7,
-          address: '456 Main St, San Francisco, CA',
-          logo: 'https://via.placeholder.com/50',
-          featured: true,
-          openHours: '8:00 AM - 9:00 PM',
-          promotions: ['New seasonal items available', 'Wine tasting on Saturdays']
-        },
-        {
-          id: '3',
-          name: 'Safeway',
-          type: 'supermarket',
-          distance: 2.1,
-          rating: 3.9,
-          address: '789 Oak St, San Francisco, CA',
-          logo: 'https://via.placeholder.com/50',
-          featured: false,
-          openHours: '7:00 AM - 11:00 PM',
-        },
-        {
-          id: '4',
-          name: 'Local Corner Market',
-          type: 'convenience',
-          distance: 0.3,
-          rating: 4.0,
-          address: '101 Pine St, San Francisco, CA',
-          logo: 'https://via.placeholder.com/50',
-          featured: false,
-          openHours: '6:00 AM - 11:00 PM',
-        },
-        {
-          id: '5',
-          name: 'Farmers Market',
-          type: 'specialty',
-          distance: 1.5,
-          rating: 4.8,
-          address: 'City Plaza, San Francisco, CA',
-          logo: 'https://via.placeholder.com/50',
-          featured: true,
-          openHours: '8:00 AM - 2:00 PM (Sat-Sun)',
-          promotions: ['Fresh local produce', 'Artisan bread and pastries']
-        },
-        {
-          id: '6',
-          name: 'Costco',
-          type: 'supermarket',
-          distance: 5.2,
-          rating: 4.2,
-          address: '250 Industrial Blvd, South San Francisco, CA',
-          logo: 'https://via.placeholder.com/50',
-          featured: false,
-          openHours: '10:00 AM - 8:30 PM',
-        },
-        {
-          id: '7',
-          name: 'Target',
-          type: 'supermarket',
-          distance: 3.5,
-          rating: 4.0,
-          address: '789 Mission St, San Francisco, CA',
-          logo: 'https://via.placeholder.com/50',
-          featured: false,
-          openHours: '8:00 AM - 10:00 PM',
-        },
-        {
-          id: '8',
-          name: 'Specialty Cheese Shop',
-          type: 'specialty',
-          distance: 1.8,
-          rating: 4.9,
-          address: '345 Gourmet Alley, San Francisco, CA',
-          logo: 'https://via.placeholder.com/50',
-          featured: true,
-          openHours: '10:00 AM - 7:00 PM',
-          promotions: ['Cheese tasting event on Friday']
-        }
-      ];
+    const fetchStores = async () => {
+      if (!user) return;
       
-      setStores(mockStores);
-      setFilteredStores(mockStores);
-      setLoading(false);
-    }, 1000);
-  }, []);
+      try {
+        const { data, error } = await supabase
+          .from('stores')
+          .select('*')
+          .eq('user_id', user.id);
+          
+        if (error) throw error;
+        
+        if (data) {
+          // Transform data to include mock properties for UI
+          const enhancedStores: Store[] = data.map(store => ({
+            ...store,
+            type: getRandomStoreType(),
+            distance: parseFloat((Math.random() * 5).toFixed(1)),
+            rating: parseFloat((3.5 + Math.random() * 1.5).toFixed(1)),
+            featured: Math.random() > 0.7,
+            openHours: getRandomOpenHours()
+          }));
+          
+          setStores(enhancedStores);
+          setFilteredStores(enhancedStores);
+        }
+      } catch (error) {
+        console.error('Error fetching stores:', error);
+        toast.error('Failed to load stores');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    setLoading(true);
+    fetchStores();
+  }, [user]);
+  
+  // Helper functions for mock data generation
+  const getRandomStoreType = (): 'grocery' | 'supermarket' | 'convenience' | 'specialty' => {
+    const types: ('grocery' | 'supermarket' | 'convenience' | 'specialty')[] = [
+      'grocery', 'supermarket', 'convenience', 'specialty'
+    ];
+    return types[Math.floor(Math.random() * types.length)];
+  };
+  
+  const getRandomOpenHours = (): string => {
+    const hours = [
+      '8:00 AM - 9:00 PM',
+      '7:00 AM - 10:00 PM',
+      '6:00 AM - 11:00 PM',
+      '8:00 AM - 8:00 PM',
+      '9:00 AM - 7:00 PM',
+    ];
+    return hours[Math.floor(Math.random() * hours.length)];
+  };
   
   // Filter stores when search term changes
   useEffect(() => {
@@ -139,13 +108,54 @@ const StoresPage = () => {
     } else {
       const filtered = stores.filter(store => 
         store.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        store.type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (store.type && store.type.toLowerCase().includes(searchTerm.toLowerCase())) ||
         store.address.toLowerCase().includes(searchTerm.toLowerCase())
       );
       setFilteredStores(filtered);
     }
   }, [searchTerm, stores]);
-
+  
+  const handleAddStore = async (data: { name: string; address: string }) => {
+    if (!user) {
+      toast.error('You must be logged in to add a store');
+      return;
+    }
+    
+    try {
+      const { data: newStore, error } = await supabase
+        .from('stores')
+        .insert({
+          name: data.name,
+          address: data.address,
+          user_id: user.id
+        })
+        .select();
+      
+      if (error) throw error;
+      
+      if (newStore && newStore.length > 0) {
+        // Add random properties for UI display
+        const enhancedStore: Store = {
+          ...newStore[0],
+          type: getRandomStoreType(),
+          distance: parseFloat((Math.random() * 5).toFixed(1)),
+          rating: parseFloat((3.5 + Math.random() * 1.5).toFixed(1)),
+          featured: false,
+          openHours: getRandomOpenHours()
+        };
+        
+        setStores(prev => [...prev, enhancedStore]);
+        setFilteredStores(prev => [...prev, enhancedStore]);
+        toast.success('Store added successfully!');
+        form.reset();
+        setDialogOpen(false);
+      }
+    } catch (error) {
+      console.error('Error adding store:', error);
+      toast.error('Failed to add store');
+    }
+  };
+  
   const getTypeLabel = (type: string) => {
     switch(type) {
       case 'grocery':
@@ -197,9 +207,15 @@ const StoresPage = () => {
   return (
     <Layout>
       <div className="space-y-6 animate-fade-in">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Nearby Stores</h1>
-          <p className="text-gray-600 mt-1">Find stores and special offers based on your ingredients</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Nearby Stores</h1>
+            <p className="text-gray-600 mt-1">Find stores and special offers based on your ingredients</p>
+          </div>
+          <Button onClick={() => setDialogOpen(true)} className="bg-fridge-blue hover:bg-fridge-blue-light">
+            <PlusCircle className="h-4 w-4 mr-2" />
+            Add Store
+          </Button>
         </div>
         
         <Card>
@@ -371,6 +387,53 @@ const StoresPage = () => {
           </CardContent>
         </Card>
       </div>
+      
+      {/* Add Store Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Store</DialogTitle>
+            <DialogDescription>
+              Enter the details of the store you want to add.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <form onSubmit={form.handleSubmit(handleAddStore)}>
+            <div className="space-y-4 py-2">
+              <div className="space-y-2">
+                <Label htmlFor="name">Store Name</Label>
+                <Input
+                  id="name"
+                  placeholder="Enter store name"
+                  {...form.register('name', { required: 'Store name is required' })}
+                />
+                {form.formState.errors.name && (
+                  <p className="text-sm text-red-500">{form.formState.errors.name.message}</p>
+                )}
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="address">Store Address</Label>
+                <Input
+                  id="address"
+                  placeholder="Enter store address"
+                  {...form.register('address', { required: 'Store address is required' })}
+                />
+                {form.formState.errors.address && (
+                  <p className="text-sm text-red-500">{form.formState.errors.address.message}</p>
+                )}
+              </div>
+            </div>
+            
+            <DialogFooter className="mt-4">
+              <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit">Save Store</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 };

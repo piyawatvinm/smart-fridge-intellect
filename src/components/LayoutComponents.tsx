@@ -27,22 +27,6 @@ export const Navbar = () => {
   const user = getUser();
   const location = useLocation();
   const [notifications, setNotifications] = useState(2);
-  const [menuItems, setMenuItems] = useState([]);
-
-  useEffect(() => {
-    // Fetch navigation items from database
-    const fetchMenuItems = async () => {
-      try {
-        // This is where you would connect to your Supabase database
-        // For now, we're keeping the hardcoded items since we don't have a navigation table yet
-        console.log('Would fetch menu items from database here');
-      } catch (error) {
-        console.error('Error fetching menu items:', error);
-      }
-    };
-
-    fetchMenuItems();
-  }, []);
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -267,10 +251,10 @@ export const Sidebar = () => {
       if (!user) return;
       
       try {
-        // Use a direct SQL query since the category column might not be in the types yet
+        // Fetch all ingredients 
         const { data, error } = await supabase
           .from('ingredients')
-          .select('*');
+          .select('category');
         
         if (error) {
           console.error('Error fetching ingredients categories:', error);
@@ -283,7 +267,7 @@ export const Sidebar = () => {
           )];
           
           console.log('Unique categories:', uniqueCategories);
-          setCategories(uniqueCategories);
+          setCategories(uniqueCategories as string[]);
         }
       } catch (error) {
         console.error('Error fetching categories:', error);

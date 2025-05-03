@@ -1,11 +1,11 @@
 
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from './AuthComponents';
-import { useState, useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 
 const ProtectedRoute = () => {
   const { user, loading } = useAuth();
+  const location = useLocation();
   
   // Show loading state while checking authentication
   if (loading) {
@@ -22,7 +22,7 @@ const ProtectedRoute = () => {
   // Redirect to login if not authenticated
   if (!user) {
     console.log('User not authenticated, redirecting to login');
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" replace state={{ from: location.pathname }} />;
   }
   
   return <Outlet />;

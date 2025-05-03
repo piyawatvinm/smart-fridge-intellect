@@ -11,6 +11,7 @@ export type Database = {
     Tables: {
       ingredients: {
         Row: {
+          category: string | null
           created_at: string | null
           expiry_date: string
           id: string
@@ -20,6 +21,7 @@ export type Database = {
           user_id: string | null
         }
         Insert: {
+          category?: string | null
           created_at?: string | null
           expiry_date: string
           id?: string
@@ -29,12 +31,248 @@ export type Database = {
           user_id?: string | null
         }
         Update: {
+          category?: string | null
           created_at?: string | null
           expiry_date?: string
           id?: string
           name?: string
           quantity?: number
           unit?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      meal_plan_ingredients: {
+        Row: {
+          created_at: string | null
+          id: string
+          ingredient_id: string | null
+          meal_plan_id: string | null
+          quantity: number
+          unit: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          ingredient_id?: string | null
+          meal_plan_id?: string | null
+          quantity: number
+          unit: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          ingredient_id?: string | null
+          meal_plan_id?: string | null
+          quantity?: number
+          unit?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meal_plan_ingredients_ingredient_id_fkey"
+            columns: ["ingredient_id"]
+            isOneToOne: false
+            referencedRelation: "ingredients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meal_plan_ingredients_meal_plan_id_fkey"
+            columns: ["meal_plan_id"]
+            isOneToOne: false
+            referencedRelation: "meal_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meal_plans: {
+        Row: {
+          created_at: string | null
+          day: string
+          id: string
+          meal_type: string
+          name: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          day: string
+          id?: string
+          meal_type: string
+          name: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          day?: string
+          id?: string
+          meal_type?: string
+          name?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      receipt_items: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          price: number
+          quantity: number
+          receipt_id: string | null
+          unit: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          price: number
+          quantity: number
+          receipt_id?: string | null
+          unit: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          price?: number
+          quantity?: number
+          receipt_id?: string | null
+          unit?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receipt_items_receipt_id_fkey"
+            columns: ["receipt_id"]
+            isOneToOne: false
+            referencedRelation: "receipts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      receipts: {
+        Row: {
+          created_at: string | null
+          id: string
+          purchase_date: string | null
+          store_id: string | null
+          total_amount: number
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          purchase_date?: string | null
+          store_id?: string | null
+          total_amount: number
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          purchase_date?: string | null
+          store_id?: string | null
+          total_amount?: number
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receipts_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shopping_list_items: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          purchased: boolean | null
+          quantity: number
+          shopping_list_id: string | null
+          store_id: string | null
+          unit: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          purchased?: boolean | null
+          quantity: number
+          shopping_list_id?: string | null
+          store_id?: string | null
+          unit: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          purchased?: boolean | null
+          quantity?: number
+          shopping_list_id?: string | null
+          store_id?: string | null
+          unit?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopping_list_items_shopping_list_id_fkey"
+            columns: ["shopping_list_id"]
+            isOneToOne: false
+            referencedRelation: "shopping_lists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_list_items_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shopping_lists: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      stores: {
+        Row: {
+          address: string
+          created_at: string | null
+          id: string
+          name: string
+          user_id: string | null
+        }
+        Insert: {
+          address: string
+          created_at?: string | null
+          id?: string
+          name: string
+          user_id?: string | null
+        }
+        Update: {
+          address?: string
+          created_at?: string | null
+          id?: string
+          name?: string
           user_id?: string | null
         }
         Relationships: []

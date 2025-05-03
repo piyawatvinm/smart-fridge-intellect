@@ -1,4 +1,3 @@
-
 import { Layout } from "@/components/LayoutComponents";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -7,6 +6,8 @@ import { useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/components/AuthComponents";
 
 interface FoodItem {
   id: string;
@@ -19,24 +20,64 @@ interface FoodItem {
 const Dashboard = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
+  const [expiringItems, setExpiringItems] = useState<FoodItem[]>([]);
+  const { getUser } = useAuth();
+  const user = getUser();
   
-  // Mock data
-  const [expiringItems, setExpiringItems] = useState<FoodItem[]>([
-    { id: '1', name: 'Milk', daysLeft: 2, category: 'Dairy', status: 'warning' },
-    { id: '2', name: 'Tomatoes', daysLeft: 1, category: 'Vegetables', status: 'warning' },
-    { id: '3', name: 'Eggs', daysLeft: 5, category: 'Dairy', status: 'ok' },
-    { id: '4', name: 'Bread', daysLeft: 0, category: 'Bakery', status: 'expired' },
-    { id: '5', name: 'Chicken', daysLeft: 0, category: 'Meat', status: 'expired' },
-  ]);
-
-  // Simulation of data loading
+  // Fetch user's ingredients
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 1000);
+    const fetchIngredients = async () => {
+      if (!user) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('ingredients')
+          .select('*')
+          .eq('user_id', user.id);
+        
+        if (error) {
+          console.error('Error fetching ingredients:', error);
+          return;
+        }
+        
+        if (data && data.length > 0) {
+          // Process ingredients data
+          const items: FoodItem[] = data.map(ing => {
+            const expiryDate = new Date(ing.expiry_date);
+            const today = new Date();
+            const diffTime = expiryDate.getTime() - today.getTime();
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            let status: 'expired' | 'warning' | 'ok';
+            if (diffDays < 0) {
+              status = 'expired';
+            } else if (diffDays <= 3) {
+              status = 'warning';
+            } else {
+              status = 'ok';
+            }
+            
+            return {
+              id: ing.id,
+              name: ing.name,
+              daysLeft: diffDays,
+              category: ing.category || 'Uncategorized',
+              status: status
+            };
+          });
+          
+          setExpiringItems(items);
+        }
+      } catch (error) {
+        console.error('Error processing ingredients:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
     
-    return () => clearTimeout(timer);
-  }, []);
+    setLoading(true);
+    fetchIngredients();
+  }, [user]);
 
   const getStatusColor = (status: string) => {
     switch(status) {
