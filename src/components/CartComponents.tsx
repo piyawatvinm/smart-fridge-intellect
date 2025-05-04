@@ -32,7 +32,11 @@ export interface CartItem {
   };
 }
 
-export const CartDisplay = () => {
+interface CartDisplayProps {
+  onOrderPlaced?: () => void;
+}
+
+export const CartDisplay: React.FC<CartDisplayProps> = ({ onOrderPlaced }) => {
   const { getUser } = useAuth();
   const user = getUser();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
@@ -98,7 +102,12 @@ export const CartDisplay = () => {
       
       toast.success('Order placed successfully!');
       setCartItems([]);
-      navigate('/dashboard');
+      
+      if (onOrderPlaced) {
+        onOrderPlaced();
+      } else {
+        navigate('/my-orders');
+      }
     } catch (error) {
       console.error('Checkout error:', error);
       toast.error('Failed to place order');
@@ -138,6 +147,13 @@ export const CartDisplay = () => {
         {isCartEmpty ? (
           <div className="py-8 text-center">
             <p className="text-gray-500">Your cart is empty</p>
+            <Button 
+              onClick={() => navigate('/products')}
+              variant="outline"
+              className="mt-4"
+            >
+              Order More Items
+            </Button>
           </div>
         ) : (
           <div className="space-y-4">
@@ -189,7 +205,7 @@ export const CartDisplay = () => {
           disabled={isCartEmpty || processing}
           onClick={handleCheckout}
         >
-          {processing ? 'Processing...' : 'Checkout'}
+          {processing ? 'Processing...' : 'Confirm Purchase'}
         </Button>
       </CardFooter>
     </Card>
@@ -220,7 +236,7 @@ export const CartIcon = () => {
   };
   
   const handleClick = () => {
-    navigate('/cart');
+    navigate('/my-orders');
   };
   
   return (

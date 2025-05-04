@@ -450,7 +450,7 @@ export const createOrder = async (userId: string, totalAmount: number) => {
       .insert([{ user_id: userId, total_amount: totalAmount }])
       .select();
     
-    if (orderError) throw orderError;
+    if (orderError) throw new Error(orderError.message);
     
     const orderId = orderData[0].id;
     
@@ -460,7 +460,7 @@ export const createOrder = async (userId: string, totalAmount: number) => {
       .select('*, products(*)')
       .eq('user_id', userId);
     
-    if (cartError) throw cartError;
+    if (cartError) throw new Error(cartError.message);
     
     if (!cartItems || cartItems.length === 0) {
       throw new Error('Cart is empty');
@@ -478,12 +478,48 @@ export const createOrder = async (userId: string, totalAmount: number) => {
       .from('order_items')
       .insert(orderItems);
     
-    if (orderItemsError) throw orderItemsError;
+    if (orderItemsError) throw new Error(orderItemsError.message);
     
-    // 4. Clear the cart
+    // 4. Add items to the ingredients table
+    for (const item of cartItems) {
+      // Check if the ingredient already exists
+      const { data: existingIngredient } = await supabase
+        .from('ingredients')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('name', item.products.name)
+        .single();
+      
+      if (existingIngredient) {
+        // Update quantity if ingredient exists
+        await supabase
+          .from('ingredients')
+          .update({
+            quantity: existingIngredient.quantity + item.quantity
+          })
+          .eq('id', existingIngredient.id);
+      } else {
+        // Add new ingredient
+        const expiryDate = new Date();
+        expiryDate.setDate(expiryDate.getDate() + 30); // Default expiry 30 days from now
+        
+        await supabase
+          .from('ingredients')
+          .insert([{
+            user_id: userId,
+            name: item.products.name,
+            quantity: item.quantity,
+            unit: 'unit', // Default unit
+            category: item.products.category || getCategoryForItem(item.products.name),
+            expiry_date: expiryDate.toISOString()
+          }]);
+      }
+    }
+    
+    // 5. Clear the cart
     await clearCart(userId);
     
-    // 5. Create a notification for the order
+    // 6. Create a notification for the order
     await createNotification(
       userId,
       'Order Placed',

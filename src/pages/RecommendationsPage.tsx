@@ -1,19 +1,29 @@
-
 import { Layout } from "@/components/LayoutComponents";
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChefHat, Clock, Heart, ShoppingCart, Star, ExternalLink, Info, Filter, Search } from "lucide-react";
+import { ChefHat, Clock, Heart, ShoppingCart, Star, Info, Search, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useGemini } from '@/hooks/use-gemini';
+import { useAuth } from "@/components/AuthComponents";
+import { addToCart, fetchUserIngredients } from "@/lib/supabaseHelpers";
+import { useNavigate } from "react-router-dom";
+
+interface Ingredient {
+  name: string;
+  quantity?: number;
+  unit?: string;
+  missing?: boolean;
+}
 
 interface Recipe {
   id: string;
   name: string;
-  ingredients: string[];
+  ingredients: Ingredient[];
   cookingTime: number;
   difficulty: 'easy' | 'medium' | 'hard';
   cuisine: string;
@@ -22,136 +32,234 @@ interface Recipe {
   matchPercentage: number;
   isFavorite: boolean;
   description: string;
-  missingIngredients?: string[];
+  instructions?: string[];
 }
 
 const RecommendationsPage = () => {
+  const { getUser } = useAuth();
+  const user = getUser();
+  const navigate = useNavigate();
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [filteredRecipes, setFilteredRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
+  const [userIngredients, setUserIngredients] = useState<string[]>([]);
+  const { generateContent, isLoading: geminiLoading } = useGemini();
   
-  // Mock data initialization
   useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      const mockRecipes: Recipe[] = [
-        {
-          id: '1',
-          name: 'Spaghetti Carbonara',
-          ingredients: ['Pasta', 'Eggs', 'Bacon', 'Parmesan Cheese', 'Black Pepper', 'Salt'],
-          cookingTime: 25,
-          difficulty: 'easy',
-          cuisine: 'Italian',
-          rating: 4.7,
-          image: 'https://via.placeholder.com/300',
-          matchPercentage: 90,
-          isFavorite: true,
-          description: 'A classic Italian pasta dish with eggs, cheese, pancetta, and black pepper.'
-        },
-        {
-          id: '2',
-          name: 'Chicken Stir Fry',
-          ingredients: ['Chicken Breast', 'Bell Peppers', 'Broccoli', 'Soy Sauce', 'Garlic', 'Ginger', 'Rice'],
-          cookingTime: 30,
-          difficulty: 'medium',
-          cuisine: 'Asian',
-          rating: 4.5,
-          image: 'https://via.placeholder.com/300',
-          matchPercentage: 85,
-          isFavorite: false,
-          description: 'A quick and healthy stir fry with chicken and vegetables.',
-          missingIngredients: ['Ginger']
-        },
-        {
-          id: '3',
-          name: 'Vegetable Omelette',
-          ingredients: ['Eggs', 'Bell Peppers', 'Onions', 'Cheese', 'Milk', 'Salt', 'Pepper'],
-          cookingTime: 15,
-          difficulty: 'easy',
-          cuisine: 'International',
-          rating: 4.3,
-          image: 'https://via.placeholder.com/300',
-          matchPercentage: 100,
-          isFavorite: true,
-          description: 'A fluffy omelette packed with fresh vegetables and cheese.'
-        },
-        {
-          id: '4',
-          name: 'Beef Tacos',
-          ingredients: ['Ground Beef', 'Taco Shells', 'Lettuce', 'Tomatoes', 'Cheese', 'Sour Cream', 'Salsa'],
-          cookingTime: 25,
-          difficulty: 'easy',
-          cuisine: 'Mexican',
-          rating: 4.6,
-          image: 'https://via.placeholder.com/300',
-          matchPercentage: 70,
-          isFavorite: false,
-          description: 'Classic beef tacos with all the toppings.',
-          missingIngredients: ['Ground Beef', 'Taco Shells']
-        },
-        {
-          id: '5',
-          name: 'Vegetable Curry',
-          ingredients: ['Potatoes', 'Carrots', 'Peas', 'Curry Powder', 'Coconut Milk', 'Onions', 'Rice'],
-          cookingTime: 40,
-          difficulty: 'medium',
-          cuisine: 'Indian',
-          rating: 4.4,
-          image: 'https://via.placeholder.com/300',
-          matchPercentage: 75,
-          isFavorite: false,
-          description: 'A flavorful vegetable curry with a rich sauce.',
-          missingIngredients: ['Curry Powder', 'Coconut Milk']
-        },
-        {
-          id: '6',
-          name: 'Caesar Salad',
-          ingredients: ['Romaine Lettuce', 'Croutons', 'Parmesan Cheese', 'Caesar Dressing', 'Chicken Breast'],
-          cookingTime: 15,
-          difficulty: 'easy',
-          cuisine: 'International',
-          rating: 4.2,
-          image: 'https://via.placeholder.com/300',
-          matchPercentage: 80,
-          isFavorite: false,
-          description: 'A classic Caesar salad with homemade dressing and croutons.',
-          missingIngredients: ['Caesar Dressing']
-        },
-        {
-          id: '7',
-          name: 'Tomato Soup',
-          ingredients: ['Tomatoes', 'Onions', 'Garlic', 'Vegetable Broth', 'Cream', 'Basil', 'Bread'],
-          cookingTime: 35,
-          difficulty: 'easy',
-          cuisine: 'International',
-          rating: 4.5,
-          image: 'https://via.placeholder.com/300',
-          matchPercentage: 95,
-          isFavorite: true,
-          description: 'A comforting tomato soup with a hint of cream and fresh basil.'
-        },
-        {
-          id: '8',
-          name: 'Pancakes',
-          ingredients: ['Flour', 'Eggs', 'Milk', 'Sugar', 'Baking Powder', 'Butter', 'Maple Syrup'],
-          cookingTime: 20,
-          difficulty: 'easy',
-          cuisine: 'American',
-          rating: 4.8,
-          image: 'https://via.placeholder.com/300',
-          matchPercentage: 90,
-          isFavorite: true,
-          description: 'Fluffy pancakes served with butter and maple syrup.'
-        }
-      ];
+    loadUserIngredients();
+    generateRecipes();
+  }, [user]);
+  
+  const loadUserIngredients = async () => {
+    if (!user) return;
+    
+    try {
+      const ingredients = await fetchUserIngredients(user.id);
+      setUserIngredients(ingredients.map(ing => ing.name.toLowerCase()));
+    } catch (error) {
+      console.error('Error loading ingredients:', error);
+    }
+  };
+  
+  // Generate recipes using Gemini API
+  const generateRecipes = async () => {
+    setLoading(true);
+    
+    try {
+      if (!user) return;
       
-      setRecipes(mockRecipes);
-      setFilteredRecipes(mockRecipes);
+      const ingredients = await fetchUserIngredients(user.id);
+      const ingredientsList = ingredients.map(ing => ing.name).join(", ");
+      
+      const prompt = `Given these ingredients: ${ingredientsList || "no ingredients provided"}. 
+      Generate 5 recipe suggestions in JSON format. 
+      For each recipe, include: name, cuisine type, difficulty (easy/medium/hard), 
+      cookingTime (in minutes), list of ingredients with quantities, 
+      a brief description, and instructions as an array of steps.
+      If an ingredient isn't in the provided list, mark it as missing: true.
+      Output should be valid JSON.`;
+      
+      const result = await generateContent(prompt);
+      
+      if (result) {
+        try {
+          // Extract JSON from the response (handling potential text before/after JSON)
+          const jsonMatch = result.match(/\{[\s\S]*\}/);
+          const jsonStr = jsonMatch ? jsonMatch[0] : result;
+          const parsedData = JSON.parse(jsonStr);
+          
+          const processedRecipes = (parsedData.recipes || []).map((recipe: any, index: number) => {
+            // Process ingredients to mark what user already has
+            const processedIngredients = recipe.ingredients.map((ing: any) => {
+              const name = typeof ing === 'string' ? ing : ing.name;
+              const exists = userIngredients.includes(name.toLowerCase());
+              
+              return {
+                ...ing,
+                name: typeof ing === 'string' ? ing : ing.name,
+                missing: !exists
+              };
+            });
+            
+            // Calculate match percentage based on ingredients user already has
+            const totalIngredients = processedIngredients.length;
+            const availableIngredients = processedIngredients.filter(ing => !ing.missing).length;
+            const matchPercentage = Math.floor((availableIngredients / totalIngredients) * 100);
+            
+            return {
+              id: `recipe-${index + 1}`,
+              name: recipe.name,
+              ingredients: processedIngredients,
+              cookingTime: recipe.cookingTime || Math.floor(Math.random() * 30) + 15,
+              difficulty: recipe.difficulty || 'medium',
+              cuisine: recipe.cuisine || 'International',
+              rating: recipe.rating || (Math.random() * 2 + 3).toFixed(1),
+              image: recipe.image || 'https://via.placeholder.com/300',
+              matchPercentage,
+              isFavorite: false,
+              description: recipe.description || `A delicious ${recipe.cuisine || ''} recipe.`,
+              instructions: recipe.instructions || []
+            };
+          });
+          
+          setRecipes(processedRecipes);
+          setFilteredRecipes(processedRecipes);
+        } catch (parseError) {
+          console.error('Error parsing Gemini response:', parseError);
+          toast.error('Error generating recipes');
+          // Use mock data as fallback
+          setRecipes(generateMockRecipes());
+          setFilteredRecipes(generateMockRecipes());
+        }
+      } else {
+        // Use mock data as fallback
+        setRecipes(generateMockRecipes());
+        setFilteredRecipes(generateMockRecipes());
+      }
+    } catch (error) {
+      console.error('Error generating recipes:', error);
+      toast.error('Failed to generate recipes');
+      // Use mock data as fallback
+      setRecipes(generateMockRecipes());
+      setFilteredRecipes(generateMockRecipes());
+    } finally {
       setLoading(false);
-    }, 1000);
-  }, []);
+    }
+  };
+  
+  // Mock data for fallback
+  const generateMockRecipes = (): Recipe[] => {
+    const mockRecipes: Recipe[] = [
+      {
+        id: '1',
+        name: 'Spaghetti Carbonara',
+        ingredients: ['Pasta', 'Eggs', 'Bacon', 'Parmesan Cheese', 'Black Pepper', 'Salt'].map(name => ({ name })),
+        cookingTime: 25,
+        difficulty: 'easy',
+        cuisine: 'Italian',
+        rating: 4.7,
+        image: 'https://via.placeholder.com/300',
+        matchPercentage: 90,
+        isFavorite: true,
+        description: 'A classic Italian pasta dish with eggs, cheese, pancetta, and black pepper.'
+      },
+      {
+        id: '2',
+        name: 'Chicken Stir Fry',
+        ingredients: ['Chicken Breast', 'Bell Peppers', 'Broccoli', 'Soy Sauce', 'Garlic', 'Ginger', 'Rice'].map(name => ({ name })),
+        cookingTime: 30,
+        difficulty: 'medium',
+        cuisine: 'Asian',
+        rating: 4.5,
+        image: 'https://via.placeholder.com/300',
+        matchPercentage: 85,
+        isFavorite: false,
+        description: 'A quick and healthy stir fry with chicken and vegetables.',
+      },
+      {
+        id: '3',
+        name: 'Vegetable Omelette',
+        ingredients: ['Eggs', 'Bell Peppers', 'Onions', 'Cheese', 'Milk', 'Salt', 'Pepper'].map(name => ({ name })),
+        cookingTime: 15,
+        difficulty: 'easy',
+        cuisine: 'International',
+        rating: 4.3,
+        image: 'https://via.placeholder.com/300',
+        matchPercentage: 100,
+        isFavorite: true,
+        description: 'A fluffy omelette packed with fresh vegetables and cheese.'
+      },
+      {
+        id: '4',
+        name: 'Beef Tacos',
+        ingredients: ['Ground Beef', 'Taco Shells', 'Lettuce', 'Tomatoes', 'Cheese', 'Sour Cream', 'Salsa'].map(name => ({ name })),
+        cookingTime: 25,
+        difficulty: 'easy',
+        cuisine: 'Mexican',
+        rating: 4.6,
+        image: 'https://via.placeholder.com/300',
+        matchPercentage: 70,
+        isFavorite: false,
+        description: 'Classic beef tacos with all the toppings.',
+      },
+      {
+        id: '5',
+        name: 'Vegetable Curry',
+        ingredients: ['Potatoes', 'Carrots', 'Peas', 'Curry Powder', 'Coconut Milk', 'Onions', 'Rice'].map(name => ({ name })),
+        cookingTime: 40,
+        difficulty: 'medium',
+        cuisine: 'Indian',
+        rating: 4.4,
+        image: 'https://via.placeholder.com/300',
+        matchPercentage: 75,
+        isFavorite: false,
+        description: 'A flavorful vegetable curry with a rich sauce.',
+      },
+      {
+        id: '6',
+        name: 'Caesar Salad',
+        ingredients: ['Romaine Lettuce', 'Croutons', 'Parmesan Cheese', 'Caesar Dressing', 'Chicken Breast'].map(name => ({ name })),
+        cookingTime: 15,
+        difficulty: 'easy',
+        cuisine: 'International',
+        rating: 4.2,
+        image: 'https://via.placeholder.com/300',
+        matchPercentage: 80,
+        isFavorite: false,
+        description: 'A classic Caesar salad with homemade dressing and croutons.',
+      },
+      {
+        id: '7',
+        name: 'Tomato Soup',
+        ingredients: ['Tomatoes', 'Onions', 'Garlic', 'Vegetable Broth', 'Cream', 'Basil', 'Bread'].map(name => ({ name })),
+        cookingTime: 35,
+        difficulty: 'easy',
+        cuisine: 'International',
+        rating: 4.5,
+        image: 'https://via.placeholder.com/300',
+        matchPercentage: 95,
+        isFavorite: true,
+        description: 'A comforting tomato soup with a hint of cream and fresh basil.'
+      },
+      {
+        id: '8',
+        name: 'Pancakes',
+        ingredients: ['Flour', 'Eggs', 'Milk', 'Sugar', 'Baking Powder', 'Butter', 'Maple Syrup'].map(name => ({ name })),
+        cookingTime: 20,
+        difficulty: 'easy',
+        cuisine: 'American',
+        rating: 4.8,
+        image: 'https://via.placeholder.com/300',
+        matchPercentage: 90,
+        isFavorite: true,
+        description: 'Fluffy pancakes served with butter and maple syrup.'
+      }
+    ];
+    
+    return mockRecipes;
+  };
   
   // Filter recipes when search term changes
   useEffect(() => {
@@ -162,7 +270,7 @@ const RecommendationsPage = () => {
         recipe.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         recipe.cuisine.toLowerCase().includes(searchTerm.toLowerCase()) ||
         recipe.ingredients.some(ingredient => 
-          ingredient.toLowerCase().includes(searchTerm.toLowerCase())
+          ingredient.name.toLowerCase().includes(searchTerm.toLowerCase())
         )
       );
       setFilteredRecipes(filtered);
@@ -189,12 +297,35 @@ const RecommendationsPage = () => {
     }
   };
 
-  const addToShoppingList = (recipe: Recipe) => {
-    // In a real app, this would add missing ingredients to a shopping list
-    if (recipe.missingIngredients && recipe.missingIngredients.length > 0) {
-      toast.success(`Added ${recipe.missingIngredients.join(', ')} to shopping list`);
-    } else {
+  const addRecipeToCart = async (recipe: Recipe) => {
+    if (!user) {
+      toast.error('Please log in to add items to cart');
+      return;
+    }
+    
+    // Get missing ingredients
+    const missingIngredients = recipe.ingredients.filter(ing => ing.missing);
+    
+    if (missingIngredients.length === 0) {
       toast.success('You have all ingredients for this recipe!');
+      return;
+    }
+    
+    try {
+      // Add each missing ingredient to cart
+      for (const ingredient of missingIngredients) {
+        // Find a product that matches this ingredient
+        // In a real app, you would have a proper product database lookup
+        // This is a simplified version
+        await addToCart(user.id, ingredient.name, 1);
+      }
+      
+      toast.success(`Added ${missingIngredients.length} ingredients to cart`);
+      // Navigate to the cart
+      navigate('/my-orders');
+    } catch (error) {
+      console.error('Error adding ingredients to cart:', error);
+      toast.error('Failed to add ingredients to cart');
     }
   };
 
@@ -243,6 +374,10 @@ const RecommendationsPage = () => {
     }
   };
 
+  const hasMissingIngredients = (recipe: Recipe) => {
+    return recipe.ingredients.some(ing => ing.missing);
+  };
+
   return (
     <Layout>
       <div className="space-y-6 animate-fade-in">
@@ -261,15 +396,26 @@ const RecommendationsPage = () => {
                 </CardDescription>
               </div>
               
-              <div className="relative w-full md:w-72">
-                <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
-                <Input
-                  type="search"
-                  placeholder="Search recipes or ingredients..."
-                  className="pl-8"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
+              <div className="flex gap-2">
+                <div className="relative w-full md:w-72">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-400" />
+                  <Input
+                    type="search"
+                    placeholder="Search recipes or ingredients..."
+                    className="pl-8"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+                
+                <Button 
+                  onClick={generateRecipes}
+                  disabled={geminiLoading}
+                  variant="outline"
+                  size="icon"
+                >
+                  <ChefHat className="h-4 w-4" />
+                </Button>
               </div>
             </div>
           </CardHeader>
@@ -285,7 +431,7 @@ const RecommendationsPage = () => {
                 {loading ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {Array(6).fill(0).map((_, index) => (
-                      <div key={index} className="h-80 shimmer rounded-lg"></div>
+                      <div key={index} className="h-80 bg-gray-100 animate-pulse rounded-lg"></div>
                     ))}
                   </div>
                 ) : filteredRecipes.length === 0 ? (
@@ -327,8 +473,10 @@ const RecommendationsPage = () => {
                             
                             <div className="flex items-center justify-between mb-3">
                               <div className="flex items-center space-x-1">
-                                {renderStars(recipe.rating)}
-                                <span className="text-sm text-gray-600 ml-1">{recipe.rating.toFixed(1)}</span>
+                                {renderStars(parseFloat(recipe.rating.toString()))}
+                                <span className="text-sm text-gray-600 ml-1">
+                                  {typeof recipe.rating === 'number' ? recipe.rating.toFixed(1) : recipe.rating}
+                                </span>
                               </div>
                               <div className="flex items-center space-x-1 text-gray-500 text-sm">
                                 <Clock className="h-4 w-4" />
@@ -347,10 +495,13 @@ const RecommendationsPage = () => {
                               {recipe.description}
                             </p>
                             
-                            {recipe.missingIngredients && recipe.missingIngredients.length > 0 && (
+                            {hasMissingIngredients(recipe) && (
                               <div className="mb-3">
                                 <p className="text-sm text-amber-700">
-                                  Missing: {recipe.missingIngredients.join(', ')}
+                                  Missing: {recipe.ingredients
+                                    .filter(ing => ing.missing)
+                                    .map(ing => ing.name)
+                                    .join(', ')}
                                 </p>
                               </div>
                             )}
@@ -368,17 +519,23 @@ const RecommendationsPage = () => {
                               <Button 
                                 variant="outline" 
                                 size="sm"
-                                className={recipe.missingIngredients && recipe.missingIngredients.length > 0 
+                                className={hasMissingIngredients(recipe)
                                   ? "text-fridge-orange border-fridge-orange" 
                                   : "text-fridge-green border-fridge-green"
                                 }
-                                onClick={() => addToShoppingList(recipe)}
+                                onClick={() => addRecipeToCart(recipe)}
                               >
-                                <ShoppingCart className="h-4 w-4 mr-1" />
-                                {recipe.missingIngredients && recipe.missingIngredients.length > 0 
-                                  ? "Get Ingredients" 
-                                  : "Cook Now"
-                                }
+                                {hasMissingIngredients(recipe) ? (
+                                  <>
+                                    <ShoppingCart className="h-4 w-4 mr-1" />
+                                    Add to Cart
+                                  </>
+                                ) : (
+                                  <>
+                                    <Check className="h-4 w-4 mr-1" />
+                                    All Items Ready
+                                  </>
+                                )}
                               </Button>
                             </div>
                           </CardContent>
@@ -392,7 +549,7 @@ const RecommendationsPage = () => {
                 {loading ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {Array(3).fill(0).map((_, index) => (
-                      <div key={index} className="h-80 shimmer rounded-lg"></div>
+                      <div key={index} className="h-80 bg-gray-100 animate-pulse rounded-lg"></div>
                     ))}
                   </div>
                 ) : (
@@ -430,8 +587,10 @@ const RecommendationsPage = () => {
                             
                             <div className="flex items-center justify-between mb-3">
                               <div className="flex items-center space-x-1">
-                                {renderStars(recipe.rating)}
-                                <span className="text-sm text-gray-600 ml-1">{recipe.rating.toFixed(1)}</span>
+                                {renderStars(parseFloat(recipe.rating.toString()))}
+                                <span className="text-sm text-gray-600 ml-1">
+                                  {typeof recipe.rating === 'number' ? recipe.rating.toFixed(1) : recipe.rating}
+                                </span>
                               </div>
                               <div className="flex items-center space-x-1 text-gray-500 text-sm">
                                 <Clock className="h-4 w-4" />
@@ -450,10 +609,13 @@ const RecommendationsPage = () => {
                               {recipe.description}
                             </p>
                             
-                            {recipe.missingIngredients && recipe.missingIngredients.length > 0 && (
+                            {hasMissingIngredients(recipe) && (
                               <div className="mb-3">
                                 <p className="text-sm text-amber-700">
-                                  Missing: {recipe.missingIngredients.join(', ')}
+                                  Missing: {recipe.ingredients
+                                    .filter(ing => ing.missing)
+                                    .map(ing => ing.name)
+                                    .join(', ')}
                                 </p>
                               </div>
                             )}
@@ -471,17 +633,23 @@ const RecommendationsPage = () => {
                               <Button 
                                 variant="outline" 
                                 size="sm"
-                                className={recipe.missingIngredients && recipe.missingIngredients.length > 0 
+                                className={hasMissingIngredients(recipe)
                                   ? "text-fridge-orange border-fridge-orange" 
                                   : "text-fridge-green border-fridge-green"
                                 }
-                                onClick={() => addToShoppingList(recipe)}
+                                onClick={() => addRecipeToCart(recipe)}
                               >
-                                <ShoppingCart className="h-4 w-4 mr-1" />
-                                {recipe.missingIngredients && recipe.missingIngredients.length > 0 
-                                  ? "Get Ingredients" 
-                                  : "Cook Now"
-                                }
+                                {hasMissingIngredients(recipe) ? (
+                                  <>
+                                    <ShoppingCart className="h-4 w-4 mr-1" />
+                                    Add to Cart
+                                  </>
+                                ) : (
+                                  <>
+                                    <Check className="h-4 w-4 mr-1" />
+                                    All Items Ready
+                                  </>
+                                )}
                               </Button>
                             </div>
                           </CardContent>
@@ -495,7 +663,7 @@ const RecommendationsPage = () => {
                 {loading ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     {Array(3).fill(0).map((_, index) => (
-                      <div key={index} className="h-80 shimmer rounded-lg"></div>
+                      <div key={index} className="h-80 bg-gray-100 animate-pulse rounded-lg"></div>
                     ))}
                   </div>
                 ) : (
@@ -539,8 +707,10 @@ const RecommendationsPage = () => {
                                 
                                 <div className="flex items-center justify-between mb-3">
                                   <div className="flex items-center space-x-1">
-                                    {renderStars(recipe.rating)}
-                                    <span className="text-sm text-gray-600 ml-1">{recipe.rating.toFixed(1)}</span>
+                                    {renderStars(parseFloat(recipe.rating.toString()))}
+                                    <span className="text-sm text-gray-600 ml-1">
+                                      {typeof recipe.rating === 'number' ? recipe.rating.toFixed(1) : recipe.rating}
+                                    </span>
                                   </div>
                                   <div className="flex items-center space-x-1 text-gray-500 text-sm">
                                     <Clock className="h-4 w-4" />
@@ -559,10 +729,13 @@ const RecommendationsPage = () => {
                                   {recipe.description}
                                 </p>
                                 
-                                {recipe.missingIngredients && recipe.missingIngredients.length > 0 && (
+                                {hasMissingIngredients(recipe) && (
                                   <div className="mb-3">
                                     <p className="text-sm text-amber-700">
-                                      Missing: {recipe.missingIngredients.join(', ')}
+                                      Missing: {recipe.ingredients
+                                        .filter(ing => ing.missing)
+                                        .map(ing => ing.name)
+                                        .join(', ')}
                                     </p>
                                   </div>
                                 )}
@@ -580,17 +753,23 @@ const RecommendationsPage = () => {
                                   <Button 
                                     variant="outline" 
                                     size="sm"
-                                    className={recipe.missingIngredients && recipe.missingIngredients.length > 0 
+                                    className={hasMissingIngredients(recipe)
                                       ? "text-fridge-orange border-fridge-orange" 
                                       : "text-fridge-green border-fridge-green"
                                     }
-                                    onClick={() => addToShoppingList(recipe)}
+                                    onClick={() => addRecipeToCart(recipe)}
                                   >
-                                    <ShoppingCart className="h-4 w-4 mr-1" />
-                                    {recipe.missingIngredients && recipe.missingIngredients.length > 0 
-                                      ? "Get Ingredients" 
-                                      : "Cook Now"
-                                    }
+                                    {hasMissingIngredients(recipe) ? (
+                                      <>
+                                        <ShoppingCart className="h-4 w-4 mr-1" />
+                                        Add to Cart
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Check className="h-4 w-4 mr-1" />
+                                        All Items Ready
+                                      </>
+                                    )}
                                   </Button>
                                 </div>
                               </CardContent>
@@ -631,90 +810,14 @@ const RecommendationsPage = () => {
                   <ul className="list-disc pl-5 space-y-1">
                     {selectedRecipe.ingredients.map((ingredient, index) => (
                       <li key={index} className={
-                        selectedRecipe.missingIngredients && 
-                        selectedRecipe.missingIngredients.includes(ingredient)
+                        ingredient.missing
                           ? "text-amber-700 font-medium"
                           : "text-gray-600"
                       }>
-                        {ingredient}
-                        {selectedRecipe.missingIngredients && 
-                         selectedRecipe.missingIngredients.includes(ingredient) && 
-                         " (missing)"}
+                        {ingredient.name}
+                        {ingredient.quantity && ingredient.unit && ` - ${ingredient.quantity} ${ingredient.unit}`}
+                        {ingredient.missing && " (missing)"}
                       </li>
                     ))}
                   </ul>
                 </div>
-                
-                <div>
-                  <h3 className="font-medium mb-2">Instructions</h3>
-                  <ol className="list-decimal pl-5 space-y-2 text-gray-600">
-                    <li>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</li>
-                    <li>Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</li>
-                    <li>Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris.</li>
-                    <li>Duis aute irure dolor in reprehenderit in voluptate velit esse cillum.</li>
-                    <li>Excepteur sint occaecat cupidatat non proident.</li>
-                  </ol>
-                </div>
-                
-                <div>
-                  <h3 className="font-medium mb-2">Nutrition Information</h3>
-                  <div className="grid grid-cols-2 gap-2 text-sm">
-                    <div className="flex justify-between p-2 bg-gray-50 rounded">
-                      <span className="text-gray-600">Calories:</span>
-                      <span className="font-medium">450 kcal</span>
-                    </div>
-                    <div className="flex justify-between p-2 bg-gray-50 rounded">
-                      <span className="text-gray-600">Protein:</span>
-                      <span className="font-medium">20g</span>
-                    </div>
-                    <div className="flex justify-between p-2 bg-gray-50 rounded">
-                      <span className="text-gray-600">Carbs:</span>
-                      <span className="font-medium">35g</span>
-                    </div>
-                    <div className="flex justify-between p-2 bg-gray-50 rounded">
-                      <span className="text-gray-600">Fat:</span>
-                      <span className="font-medium">15g</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              <DialogFooter className="flex-col sm:flex-row sm:justify-between gap-2">
-                <Button 
-                  variant="outline" 
-                  className="w-full sm:w-auto"
-                  onClick={() => toggleFavorite(selectedRecipe.id)}
-                >
-                  <Heart 
-                    className={`h-4 w-4 mr-2 ${selectedRecipe.isFavorite ? 'fill-red-500 text-red-500' : ''}`} 
-                  />
-                  {selectedRecipe.isFavorite ? 'Remove from Favorites' : 'Add to Favorites'}
-                </Button>
-                
-                <div className="flex gap-2">
-                  {selectedRecipe.missingIngredients && selectedRecipe.missingIngredients.length > 0 && (
-                    <Button 
-                      className="bg-fridge-orange hover:bg-orange-600"
-                      onClick={() => addToShoppingList(selectedRecipe)}
-                    >
-                      <ShoppingCart className="h-4 w-4 mr-2" />
-                      Add Missing to Cart
-                    </Button>
-                  )}
-                  <Button 
-                    className="bg-fridge-blue hover:bg-fridge-blue-light"
-                  >
-                    <ChefHat className="h-4 w-4 mr-2" />
-                    Start Cooking
-                  </Button>
-                </div>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        )}
-      </div>
-    </Layout>
-  );
-};
-
-export default RecommendationsPage;

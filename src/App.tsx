@@ -14,10 +14,8 @@ import IngredientsPage from "./pages/IngredientsPage";
 import StoresPage from "./pages/StoresPage";
 import RecommendationsPage from "./pages/RecommendationsPage";
 import WelcomePage from "./pages/WelcomePage";
-import ShoppingListPage from "./pages/ShoppingListPage";
 import ProductsPage from "./pages/ProductsPage";
-import CartPage from "./pages/CartPage";
-import OrdersPage from "./pages/OrdersPage";
+import MyOrdersPage from "./pages/MyOrdersPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 import { AuthProvider } from "./components/AuthComponents";
 import React from "react";
@@ -52,11 +50,9 @@ const App = () => {
                 <Route path="/receipt" element={<ReceiptPage />} />
                 <Route path="/ingredients" element={<IngredientsPage />} />
                 <Route path="/stores" element={<StoresPage />} />
-                <Route path="/shopping-list" element={<ShoppingListPage />} />
                 <Route path="/recommendations" element={<RecommendationsPage />} />
                 <Route path="/products" element={<ProductsPage />} />
-                <Route path="/cart" element={<CartPage />} />
-                <Route path="/orders" element={<OrdersPage />} />
+                <Route path="/my-orders" element={<MyOrdersPage />} />
               </Route>
               
               <Route path="*" element={<NotFound />} />

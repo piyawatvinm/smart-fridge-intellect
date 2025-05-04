@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthComponents';
@@ -176,29 +175,26 @@ export const Navbar = () => {
               isActive={location.pathname === '/stores'}
             />
             <MobileNavItem
-              to="/products"
-              icon={<Tag className="h-5 w-5" />}
-              label="Products"
-              isActive={location.pathname === '/products'}
-            />
-            <MobileNavItem
-              to="/cart"
-              icon={<ShoppingCart className="h-5 w-5" />}
-              label="Cart"
-              isActive={location.pathname === '/cart'}
-            />
-            <MobileNavItem
-              to="/orders"
-              icon={<Package className="h-5 w-5" />}
-              label="Orders"
-              isActive={location.pathname === '/orders'}
-            />
-            <MobileNavItem
               to="/recommendations"
               icon={<ChefHat className="h-5 w-5" />}
               label="Recommendations"
               isActive={location.pathname === '/recommendations'}
             />
+            <MobileNavItem
+              to="/my-orders"
+              icon={<ShoppingCart className="h-5 w-5" />}
+              label="My Orders"
+              isActive={location.pathname === '/my-orders'}
+            />
+            
+            {location.pathname === '/products' && (
+              <MobileNavItem
+                to="/products"
+                icon={<Tag className="h-5 w-5" />}
+                label="Products"
+                isActive={true}
+              />
+            )}
           </div>
         </div>
       )}
@@ -231,16 +227,14 @@ const MobileNavItem = ({ to, icon, label, isActive }: MobileNavItemProps) => {
 
 export const Sidebar = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const [navItems, setNavItems] = useState([
     { path: '/dashboard', label: 'Dashboard', icon: Home },
     { path: '/receipt', label: 'Upload Receipt', icon: Receipt },
     { path: '/ingredients', label: 'Ingredients', icon: List },
-    { path: '/shopping-list', label: 'Shopping Lists', icon: ShoppingCart },
     { path: '/stores', label: 'Stores', icon: ShoppingBag },
-    { path: '/products', label: 'Products', icon: Tag },
-    { path: '/cart', label: 'Cart', icon: ShoppingCart },
-    { path: '/orders', label: 'Orders', icon: Package },
     { path: '/recommendations', label: 'Recommendations', icon: ChefHat },
+    { path: '/my-orders', label: 'My Orders', icon: ShoppingCart },
   ]);
   const [categories, setCategories] = useState<string[]>([]);
   const { getUser } = useAuth();
@@ -277,6 +271,12 @@ export const Sidebar = () => {
     
     fetchCategories();
   }, [user]);
+
+  // Check if we arrived from recommendations page and should show products
+  const fromRecommendations = location.pathname === '/products' && 
+                             document.referrer.includes('/recommendations');
+                             
+  const showProductsLink = fromRecommendations || location.pathname === '/products';
   
   return (
     <div className="hidden md:flex flex-col h-screen bg-white border-r border-gray-200 w-64 sticky top-0">
@@ -286,6 +286,9 @@ export const Sidebar = () => {
         </div>
         <nav className="mt-8 flex-1 px-4 space-y-2">
           {navItems.map((item) => {
+            // Skip the Products link unless we're showing it
+            if (item.path === '/products' && !showProductsLink) return null;
+            
             const Icon = item.icon;
             return (
               <SidebarItem
@@ -297,6 +300,16 @@ export const Sidebar = () => {
               />
             );
           })}
+          
+          {/* Show products link conditionally */}
+          {showProductsLink && (
+            <SidebarItem
+              to="/products"
+              icon={<Tag className="h-5 w-5" />}
+              label="Products"
+              isActive={location.pathname === '/products'}
+            />
+          )}
           
           {categories.length > 0 && (
             <>
