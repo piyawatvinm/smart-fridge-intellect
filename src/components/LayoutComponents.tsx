@@ -12,23 +12,23 @@ import {
   Menu, 
   X, 
   User,
-  Bell,
   Search,
   Tag,
-  ShoppingCart
+  ShoppingCart,
+  Package
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { toast } from 'sonner';
 import { supabase } from "@/integrations/supabase/client";
+import { NotificationIcon } from './NotificationComponents';
+import { CartIcon } from './CartComponents';
 
 export const Navbar = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { logout, getUser } = useAuth();
   const user = getUser();
   const location = useLocation();
-  const [notifications, setNotifications] = useState(2);
 
   const toggleMenu = () => {
     setIsMenuOpen(!isMenuOpen);
@@ -37,11 +37,6 @@ export const Navbar = () => {
   const handleLogout = () => {
     logout();
     toast.success('Logged out successfully');
-  };
-
-  const clearNotifications = () => {
-    setNotifications(0);
-    toast.success('Notifications cleared');
   };
 
   // Get the first initial of the user's name or use a fallback
@@ -82,22 +77,13 @@ export const Navbar = () => {
           </div>
           
           <div className="hidden md:flex items-center space-x-4">
-            <div className="relative">
-              <Bell 
-                className="h-6 w-6 text-gray-500 hover:text-fridge-blue cursor-pointer transition-colors"
-                onClick={clearNotifications}
-              />
-              {notifications > 0 && (
-                <Badge 
-                  className="absolute -top-1 -right-1 bg-fridge-red hover:bg-red-500"
-                  variant="destructive"
-                >
-                  {notifications}
-                </Badge>
-              )}
-            </div>
-            
             <div className="flex items-center space-x-2">
+              {/* Notification Icon */}
+              <NotificationIcon />
+              
+              {/* Cart Icon */}
+              <CartIcon />
+              
               <Avatar>
                 <AvatarImage src="" />
                 <AvatarFallback className="bg-fridge-blue text-white">
@@ -147,20 +133,11 @@ export const Navbar = () => {
               </div>
               
               <div className="flex items-center space-x-4">
-                <div className="relative">
-                  <Bell 
-                    className="h-6 w-6 text-gray-500"
-                    onClick={clearNotifications}
-                  />
-                  {notifications > 0 && (
-                    <Badge 
-                      className="absolute -top-1 -right-1 bg-fridge-red hover:bg-red-500"
-                      variant="destructive"
-                    >
-                      {notifications}
-                    </Badge>
-                  )}
-                </div>
+                {/* Mobile Notification Icon */}
+                <NotificationIcon />
+                
+                {/* Mobile Cart Icon */}
+                <CartIcon />
                 
                 <Button 
                   variant="ghost" 
@@ -197,6 +174,24 @@ export const Navbar = () => {
               icon={<ShoppingBag className="h-5 w-5" />}
               label="Stores"
               isActive={location.pathname === '/stores'}
+            />
+            <MobileNavItem
+              to="/products"
+              icon={<Tag className="h-5 w-5" />}
+              label="Products"
+              isActive={location.pathname === '/products'}
+            />
+            <MobileNavItem
+              to="/cart"
+              icon={<ShoppingCart className="h-5 w-5" />}
+              label="Cart"
+              isActive={location.pathname === '/cart'}
+            />
+            <MobileNavItem
+              to="/orders"
+              icon={<Package className="h-5 w-5" />}
+              label="Orders"
+              isActive={location.pathname === '/orders'}
             />
             <MobileNavItem
               to="/recommendations"
@@ -242,6 +237,9 @@ export const Sidebar = () => {
     { path: '/ingredients', label: 'Ingredients', icon: List },
     { path: '/shopping-list', label: 'Shopping Lists', icon: ShoppingCart },
     { path: '/stores', label: 'Stores', icon: ShoppingBag },
+    { path: '/products', label: 'Products', icon: Tag },
+    { path: '/cart', label: 'Cart', icon: ShoppingCart },
+    { path: '/orders', label: 'Orders', icon: Package },
     { path: '/recommendations', label: 'Recommendations', icon: ChefHat },
   ]);
   const [categories, setCategories] = useState<string[]>([]);
