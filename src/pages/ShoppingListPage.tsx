@@ -1,4 +1,3 @@
-
 import { Layout } from "@/components/LayoutComponents";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/components/AuthComponents";
@@ -500,12 +499,12 @@ const ShoppingListPage = () => {
             
             <div className="space-y-2">
               <Label htmlFor="store">Store (Optional)</Label>
-              <Select value={selectedStore || ""} onValueChange={setSelectedStore}>
+              <Select value={selectedStore || "no-store"} onValueChange={setSelectedStore}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select a store" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No store</SelectItem>
+                  <SelectItem value="no-store">No store</SelectItem>
                   {stores.map(store => (
                     <SelectItem key={store.id} value={store.id}>
                       {store.name}
@@ -538,12 +537,12 @@ const ShoppingListPage = () => {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="assign-store">Store</Label>
-              <Select value={selectedStore || ""} onValueChange={setSelectedStore}>
+              <Select value={selectedStore || "no-store"} onValueChange={setSelectedStore}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select a store" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No store</SelectItem>
+                  <SelectItem value="no-store">No store</SelectItem>
                   {stores.map(store => (
                     <SelectItem key={store.id} value={store.id}>
                       {store.name}

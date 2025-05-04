@@ -265,11 +265,12 @@ export const ProductFormDialog: React.FC<ProductFormDialogProps> = ({
             
             <div className="space-y-2">
               <Label htmlFor="category">Category</Label>
-              <Select value={formData.category} onValueChange={handleCategoryChange}>
+              <Select value={formData.category || "uncategorized"} onValueChange={handleCategoryChange}>
                 <SelectTrigger id="category">
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="uncategorized">Select a category</SelectItem>
                   <SelectItem value="Fruits">Fruits</SelectItem>
                   <SelectItem value="Vegetables">Vegetables</SelectItem>
                   <SelectItem value="Dairy">Dairy</SelectItem>
