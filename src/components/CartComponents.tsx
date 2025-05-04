@@ -1,296 +1,415 @@
 
 import React, { useState, useEffect } from 'react';
-import { useAuth } from './AuthComponents';
 import { 
   fetchCartItems, 
+  addToCart as addToCartHelper, 
   removeFromCart, 
-  updateCartItemQuantity,
-  createOrder
+  updateCartQuantity,
+  fetchProductDetails,
+  placeOrder
 } from '@/lib/supabaseHelpers';
+import { useAuth } from './AuthComponents';
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { 
+  ShoppingCart, 
+  Trash2, 
+  Plus, 
+  Minus,
+  Store,
+  Check
+} from 'lucide-react';
 import { toast } from 'sonner';
-import { ShoppingCart, Plus, Minus, Trash2 } from 'lucide-react';
+import { Skeleton } from "@/components/ui/skeleton";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { useNavigate } from 'react-router-dom';
 
-// Cart item type
-export interface CartItem {
+interface CartItem {
   id: string;
-  quantity: number;
-  user_id: string;
   product_id: string;
-  created_at: string;
-  products: {
+  quantity: number;
+  product: {
     id: string;
     name: string;
-    description?: string;
     price: number;
+    description?: string;
     image_url?: string;
     category?: string;
+    store_id?: string;
+    store?: {
+      id: string;
+      name: string;
+    };
   };
+}
+
+interface StoreGroup {
+  storeName: string;
+  storeId: string | null;
+  items: CartItem[];
+  subtotal: number;
 }
 
 interface CartDisplayProps {
   onOrderPlaced?: () => void;
+  onConfirmPurchase?: () => void;
 }
 
-export const CartDisplay: React.FC<CartDisplayProps> = ({ onOrderPlaced }) => {
+export const CartDisplay: React.FC<CartDisplayProps> = ({ 
+  onOrderPlaced,
+  onConfirmPurchase
+}) => {
   const { getUser } = useAuth();
   const user = getUser();
+  const navigate = useNavigate();
+  
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [processing, setProcessing] = useState(false);
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    if (user) {
-      loadCartItems();
-    }
-  }, [user]);
-
-  const loadCartItems = async () => {
+  const [placingOrder, setPlacingOrder] = useState(false);
+  
+  const fetchCart = async () => {
     if (!user) return;
     
     setLoading(true);
     try {
       const items = await fetchCartItems(user.id);
-      setCartItems(items);
+      
+      // Fetch product details for each cart item
+      const itemsWithProductDetails = await Promise.all(
+        items.map(async (item) => {
+          try {
+            const product = await fetchProductDetails(item.product_id);
+            return {
+              ...item,
+              product: product || { 
+                id: item.product_id,
+                name: 'Unknown Product',
+                price: 0
+              }
+            };
+          } catch (err) {
+            console.error(`Error fetching product ${item.product_id}:`, err);
+            return {
+              ...item,
+              product: { 
+                id: item.product_id,
+                name: 'Unknown Product',
+                price: 0
+              }
+            };
+          }
+        })
+      );
+      
+      setCartItems(itemsWithProductDetails);
     } catch (error) {
-      console.error('Error loading cart:', error);
+      console.error('Error fetching cart:', error);
       toast.error('Failed to load your cart');
     } finally {
       setLoading(false);
     }
   };
-
-  const handleQuantityChange = async (itemId: string, newQuantity: number) => {
-    if (newQuantity < 1) return;
+  
+  useEffect(() => {
+    fetchCart();
+  }, [user]);
+  
+  const handleRemoveFromCart = async (cartItemId: string) => {
+    if (!user) return;
     
     try {
-      await updateCartItemQuantity(itemId, newQuantity);
-      setCartItems(prev => 
-        prev.map(item => 
-          item.id === itemId ? { ...item, quantity: newQuantity } : item
-        )
-      );
+      await removeFromCart(cartItemId);
+      setCartItems(cartItems.filter(item => item.id !== cartItemId));
+      toast.success('Item removed from cart');
+    } catch (error) {
+      console.error('Error removing item from cart:', error);
+      toast.error('Failed to remove item');
+    }
+  };
+  
+  const handleUpdateQuantity = async (cartItemId: string, newQuantity: number) => {
+    if (!user || newQuantity < 1) return;
+    
+    try {
+      await updateCartQuantity(cartItemId, newQuantity);
+      setCartItems(cartItems.map(item => 
+        item.id === cartItemId ? { ...item, quantity: newQuantity } : item
+      ));
     } catch (error) {
       console.error('Error updating quantity:', error);
       toast.error('Failed to update quantity');
     }
   };
-
-  const handleRemoveItem = async (itemId: string) => {
-    try {
-      await removeFromCart(itemId);
-      setCartItems(prev => prev.filter(item => item.id !== itemId));
-      toast.success('Item removed from cart');
-    } catch (error) {
-      console.error('Error removing item:', error);
-      toast.error('Failed to remove item');
-    }
-  };
-
-  const handleCheckout = async () => {
+  
+  const handlePlaceOrder = async () => {
     if (!user || cartItems.length === 0) return;
     
-    setProcessing(true);
+    setPlacingOrder(true);
     try {
-      const totalAmount = calculateTotal();
-      await createOrder(user.id, totalAmount);
-      
+      await placeOrder(user.id);
       toast.success('Order placed successfully!');
       setCartItems([]);
       
       if (onOrderPlaced) {
         onOrderPlaced();
-      } else {
-        navigate('/my-orders');
       }
     } catch (error) {
-      console.error('Checkout error:', error);
+      console.error('Error placing order:', error);
       toast.error('Failed to place order');
     } finally {
-      setProcessing(false);
+      setPlacingOrder(false);
     }
   };
 
-  const calculateTotal = () => {
-    return cartItems.reduce((sum, item) => 
-      sum + (item.quantity * item.products.price), 0
-    );
+  const handleConfirmPurchase = () => {
+    if (!cartItems.length) {
+      toast.error('Your cart is empty');
+      return;
+    }
+    
+    if (onConfirmPurchase) {
+      onConfirmPurchase();
+    }
   };
   
-  const isCartEmpty = cartItems.length === 0;
+  const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  const subtotal = cartItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
 
-  if (loading) {
+  // Group cart items by store for display
+  const groupItemsByStore = (): StoreGroup[] => {
+    const storeGroups: Record<string, StoreGroup> = {};
+    
+    cartItems.forEach(item => {
+      const storeId = item.product.store_id || 'no-store';
+      const storeName = item.product.store?.name || 'General Store';
+      
+      if (!storeGroups[storeId]) {
+        storeGroups[storeId] = {
+          storeId: storeId === 'no-store' ? null : storeId,
+          storeName,
+          items: [],
+          subtotal: 0
+        };
+      }
+      
+      storeGroups[storeId].items.push(item);
+      storeGroups[storeId].subtotal += item.product.price * item.quantity;
+    });
+    
+    return Object.values(storeGroups);
+  };
+  
+  const storeGroups = groupItemsByStore();
+  
+  if (!user) {
     return (
-      <div className="space-y-4">
-        <Skeleton className="w-full h-20" />
-        <Skeleton className="w-full h-20" />
-        <Skeleton className="w-full h-20" />
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <ShoppingCart className="mr-2 h-5 w-5" />
+            Shopping Cart
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center py-8">
+            <p className="text-gray-500">Please log in to view your cart.</p>
+            <Button 
+              className="mt-4"
+              onClick={() => navigate('/login')}
+            >
+              Log In
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     );
   }
-
+  
   return (
-    <Card className="bg-white shadow-md">
+    <Card>
       <CardHeader>
         <CardTitle className="flex items-center">
-          <ShoppingCart className="mr-2" />
-          Your Cart
+          <ShoppingCart className="mr-2 h-5 w-5" />
+          Shopping Cart {totalItems > 0 && `(${totalItems} items)`}
         </CardTitle>
       </CardHeader>
-      
-      <CardContent className="space-y-4">
-        {isCartEmpty ? (
-          <div className="py-8 text-center">
-            <p className="text-gray-500">Your cart is empty</p>
+      <CardContent>
+        {loading ? (
+          <div className="space-y-4">
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+          </div>
+        ) : cartItems.length === 0 ? (
+          <div className="text-center py-8">
+            <p className="text-gray-500">Your cart is empty.</p>
             <Button 
-              onClick={() => navigate('/products')}
-              variant="outline"
               className="mt-4"
+              onClick={() => navigate('/products?from=my-orders')}
             >
-              Order More Items
+              Browse Products
             </Button>
           </div>
         ) : (
-          <div className="space-y-4">
-            {cartItems.map(item => (
-              <div key={item.id} className="flex justify-between items-center border-b pb-4">
-                <div className="flex-1">
-                  <h3 className="font-medium">{item.products.name}</h3>
-                  <p className="text-sm text-gray-500">${item.products.price.toFixed(2)} each</p>
+          <div className="space-y-8">
+            {/* Show items grouped by store */}
+            {storeGroups.map((storeGroup, index) => (
+              <div key={index} className="mb-6">
+                <div className="flex items-center mb-2">
+                  <Store className="h-4 w-4 mr-2 text-gray-600" />
+                  <h3 className="font-medium">{storeGroup.storeName}</h3>
                 </div>
-                
-                <div className="flex items-center space-x-2">
-                  <button 
-                    onClick={() => handleQuantityChange(item.id, item.quantity - 1)}
-                    className="p-1 rounded hover:bg-gray-100"
-                  >
-                    <Minus className="h-4 w-4" />
-                  </button>
-                  
-                  <span className="w-8 text-center">{item.quantity}</span>
-                  
-                  <button 
-                    onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
-                    className="p-1 rounded hover:bg-gray-100"
-                  >
-                    <Plus className="h-4 w-4" />
-                  </button>
-                  
-                  <button 
-                    onClick={() => handleRemoveItem(item.id)}
-                    className="ml-4 p-1 text-red-500 hover:bg-red-50 rounded"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
+
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Product</TableHead>
+                      <TableHead>Price</TableHead>
+                      <TableHead>Quantity</TableHead>
+                      <TableHead className="text-right">Total</TableHead>
+                      <TableHead></TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {storeGroup.items.map(item => (
+                      <TableRow key={item.id}>
+                        <TableCell>
+                          <div>
+                            <div className="font-medium">{item.product.name}</div>
+                            {item.product.category && (
+                              <div className="text-xs text-gray-500">
+                                {item.product.category}
+                              </div>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>${item.product.price.toFixed(2)}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <Button 
+                              variant="outline" 
+                              size="icon" 
+                              className="h-7 w-7"
+                              onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
+                              disabled={item.quantity <= 1}
+                            >
+                              <Minus className="h-3 w-3" />
+                            </Button>
+                            <span className="w-5 text-center">{item.quantity}</span>
+                            <Button 
+                              variant="outline" 
+                              size="icon" 
+                              className="h-7 w-7"
+                              onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
+                            >
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          ${(item.product.price * item.quantity).toFixed(2)}
+                        </TableCell>
+                        <TableCell>
+                          <Button 
+                            variant="ghost" 
+                            size="icon"
+                            onClick={() => handleRemoveFromCart(item.id)}
+                          >
+                            <Trash2 className="h-4 w-4 text-gray-500" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-right font-medium">
+                        Subtotal:
+                      </TableCell>
+                      <TableCell className="text-right font-medium">
+                        ${storeGroup.subtotal.toFixed(2)}
+                      </TableCell>
+                      <TableCell></TableCell>
+                    </TableRow>
+                  </TableBody>
+                </Table>
               </div>
             ))}
+
+            <div className="pt-4 border-t border-gray-200">
+              <div className="flex justify-between mb-4">
+                <span className="font-bold">Order Total:</span>
+                <span className="font-bold">${subtotal.toFixed(2)}</span>
+              </div>
+              
+              <div className="flex flex-col sm:flex-row gap-2 justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => navigate('/products?from=my-orders')}
+                >
+                  Add More Items
+                </Button>
+                <Button
+                  className="bg-fridge-blue hover:bg-blue-700"
+                  disabled={placingOrder || cartItems.length === 0}
+                  onClick={handleConfirmPurchase}
+                >
+                  <Check className="h-4 w-4 mr-2" />
+                  Confirm Purchase
+                </Button>
+              </div>
+            </div>
           </div>
         )}
       </CardContent>
-      
-      <CardFooter className="flex flex-col">
-        <div className="w-full flex justify-between py-4">
-          <span className="font-medium">Total:</span>
-          <span className="font-bold">${calculateTotal().toFixed(2)}</span>
-        </div>
-        
-        <Button 
-          className="w-full bg-fridge-blue hover:bg-blue-700"
-          disabled={isCartEmpty || processing}
-          onClick={handleCheckout}
-        >
-          {processing ? 'Processing...' : 'Confirm Purchase'}
-        </Button>
-      </CardFooter>
     </Card>
   );
 };
 
-export const CartIcon = () => {
-  const { getUser } = useAuth();
-  const user = getUser();
-  const [itemCount, setItemCount] = useState(0);
-  const navigate = useNavigate();
-  
-  useEffect(() => {
-    if (user) {
-      loadCartCount();
-    }
-  }, [user]);
-  
-  const loadCartCount = async () => {
-    if (!user) return;
-    
-    try {
-      const items = await fetchCartItems(user.id);
-      setItemCount(items.length);
-    } catch (error) {
-      console.error('Error loading cart count:', error);
-    }
-  };
-  
-  const handleClick = () => {
-    navigate('/my-orders');
-  };
-  
-  return (
-    <button 
-      onClick={handleClick} 
-      className="relative p-2 hover:bg-gray-100 rounded-full"
-    >
-      <ShoppingCart className="h-5 w-5 text-gray-600" />
-      {itemCount > 0 && (
-        <span className="absolute -top-1 -right-1 bg-fridge-red text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-          {itemCount}
-        </span>
-      )}
-    </button>
-  );
-};
-
-// Add to Cart component
-interface AddToCartProps {
+interface AddToCartButtonProps {
   productId: string;
+  quantity?: number;
+  className?: string;
+  showIcon?: boolean;
 }
 
-export const AddToCartButton: React.FC<AddToCartProps> = ({ productId }) => {
+export const AddToCartButton: React.FC<AddToCartButtonProps> = ({
+  productId,
+  quantity = 1,
+  className = '',
+  showIcon = true
+}) => {
   const { getUser } = useAuth();
   const user = getUser();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   
   const handleAddToCart = async () => {
     if (!user) {
-      toast.error('You need to be logged in to add items to cart');
+      toast.error('Please log in to add items to cart');
+      navigate('/login');
       return;
     }
     
     setLoading(true);
     try {
-      const { addToCart } = await import('@/lib/supabaseHelpers');
-      await addToCart(user.id, productId, 1);
+      await addToCartHelper(user.id, productId, quantity);
       toast.success('Added to cart');
     } catch (error) {
       console.error('Error adding to cart:', error);
-      toast.error('Failed to add item to cart');
+      toast.error('Failed to add to cart');
     } finally {
       setLoading(false);
     }
   };
   
   return (
-    <Button
-      onClick={handleAddToCart}
+    <Button 
+      onClick={handleAddToCart} 
       disabled={loading}
-      variant="outline"
-      size="sm"
-      className="ml-auto"
+      className={className || "bg-fridge-blue hover:bg-blue-700"}
     >
+      {showIcon && <ShoppingCart className="h-4 w-4 mr-2" />}
       {loading ? 'Adding...' : 'Add to Cart'}
     </Button>
   );

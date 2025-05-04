@@ -9,10 +9,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from 'sonner';
-import { Trash2 } from 'lucide-react';
+import { Trash2, Store, Info } from 'lucide-react';
 import { useAuth } from './AuthComponents';
 import { addProduct, updateProduct, deleteProduct } from '@/lib/supabaseHelpers';
 import { AddToCartButton } from './CartComponents';
+import { Badge } from "@/components/ui/badge";
 
 export interface Product {
   id: string;
@@ -23,6 +24,17 @@ export interface Product {
   category?: string;
   created_at?: string;
   user_id?: string;
+  store_id?: string;
+  store?: {
+    name: string;
+    address: string;
+  };
+}
+
+interface Store {
+  id: string;
+  name: string;
+  address: string;
 }
 
 interface ProductCardProps {
@@ -40,6 +52,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 }) => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   
   const handleEdit = () => {
     setIsEditDialogOpen(true);
@@ -47,6 +60,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   
   const handleDelete = () => {
     setIsDeleteDialogOpen(true);
+  };
+
+  const handleViewDetails = () => {
+    setIsDetailsOpen(true);
   };
 
   return (
@@ -72,11 +89,17 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               {product.category}
             </div>
           )}
+          {product.store && (
+            <Badge variant="outline" className="flex items-center gap-1">
+              <Store className="h-3 w-3" />
+              {product.store.name}
+            </Badge>
+          )}
         </CardHeader>
         
         <CardContent className="flex-grow">
           {product.description && (
-            <p className="text-gray-700 text-sm">{product.description}</p>
+            <p className="text-gray-700 text-sm line-clamp-3">{product.description}</p>
           )}
         </CardContent>
         
@@ -93,7 +116,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 </Button>
               </>
             ) : (
-              <AddToCartButton productId={product.id} />
+              <div className="flex w-full justify-between">
+                <Button variant="outline" size="sm" onClick={handleViewDetails}>
+                  <Info className="h-4 w-4 mr-1" />
+                  Details
+                </Button>
+                <AddToCartButton productId={product.id} />
+              </div>
             )}
           </CardFooter>
         )}
@@ -120,20 +149,77 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           }}
         />
       )}
+
+      {isDetailsOpen && (
+        <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{product.name}</DialogTitle>
+              {product.category && (
+                <DialogDescription>{product.category}</DialogDescription>
+              )}
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              {product.image_url && (
+                <div className="h-56 bg-gray-100 overflow-hidden rounded-md">
+                  <img 
+                    src={product.image_url} 
+                    alt={product.name} 
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+              
+              <div className="flex justify-between items-center">
+                <div className="font-medium">Price:</div>
+                <div className="text-lg font-bold">${product.price.toFixed(2)}</div>
+              </div>
+              
+              {product.description && (
+                <div>
+                  <div className="font-medium mb-1">Description:</div>
+                  <p className="text-gray-700">{product.description}</p>
+                </div>
+              )}
+              
+              {product.store && (
+                <div>
+                  <div className="font-medium mb-1">Available at:</div>
+                  <div className="flex items-center gap-2">
+                    <Store className="h-4 w-4 text-gray-500" />
+                    <div>
+                      <div>{product.store.name}</div>
+                      <div className="text-sm text-gray-500">{product.store.address}</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              <div className="flex justify-end pt-4">
+                <AddToCartButton productId={product.id} />
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 };
 
+// Make sure we pass the stores prop to the form dialog
 interface ProductFormDialogProps {
   onClose: () => void;
   onSubmit: () => void;
   initialData?: Product;
+  stores?: Store[];
 }
 
 export const ProductFormDialog: React.FC<ProductFormDialogProps> = ({ 
   onClose, 
   onSubmit, 
-  initialData 
+  initialData,
+  stores = []
 }) => {
   const { getUser } = useAuth();
   const user = getUser();
@@ -142,7 +228,8 @@ export const ProductFormDialog: React.FC<ProductFormDialogProps> = ({
     description: initialData?.description || '',
     price: initialData?.price ? initialData.price.toString() : '',
     category: initialData?.category || '',
-    imageUrl: initialData?.image_url || ''
+    imageUrl: initialData?.image_url || '',
+    storeId: initialData?.store_id || ''
   });
   const [loading, setLoading] = useState(false);
   
@@ -153,6 +240,10 @@ export const ProductFormDialog: React.FC<ProductFormDialogProps> = ({
   
   const handleCategoryChange = (value: string) => {
     setFormData(prev => ({ ...prev, category: value }));
+  };
+  
+  const handleStoreChange = (value: string) => {
+    setFormData(prev => ({ ...prev, storeId: value }));
   };
   
   const handleSubmit = async (e: React.FormEvent) => {
@@ -185,7 +276,8 @@ export const ProductFormDialog: React.FC<ProductFormDialogProps> = ({
           description: formData.description,
           price,
           category: formData.category,
-          image_url: formData.imageUrl
+          image_url: formData.imageUrl,
+          store_id: formData.storeId || null
         });
         toast.success('Product updated successfully');
       } else {
@@ -196,7 +288,8 @@ export const ProductFormDialog: React.FC<ProductFormDialogProps> = ({
           price,
           formData.category,
           user.id,
-          formData.imageUrl
+          formData.imageUrl,
+          formData.storeId || null
         );
         toast.success('Product added successfully');
       }
@@ -285,6 +378,23 @@ export const ProductFormDialog: React.FC<ProductFormDialogProps> = ({
           </div>
           
           <div className="space-y-2">
+            <Label htmlFor="storeId">Available at Store</Label>
+            <Select value={formData.storeId || "no-store"} onValueChange={handleStoreChange}>
+              <SelectTrigger id="storeId">
+                <SelectValue placeholder="Select store" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="no-store">No specific store</SelectItem>
+                {stores.map(store => (
+                  <SelectItem key={store.id} value={store.id}>
+                    {store.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="space-y-2">
             <Label htmlFor="imageUrl">Image URL</Label>
             <Input
               id="imageUrl"
@@ -320,11 +430,30 @@ export const ProductEditDialog: React.FC<ProductEditDialogProps> = ({
   onClose, 
   onUpdate 
 }) => {
+  const [stores, setStores] = useState<Store[]>([]);
+
+  // Fetch stores when dialog opens
+  React.useEffect(() => {
+    const fetchAvailableStores = async () => {
+      try {
+        const storeData = await fetch('/api/stores').then(res => res.json());
+        setStores(storeData);
+      } catch (error) {
+        console.error('Error fetching stores:', error);
+        // Proceed even if stores can't be loaded
+        setStores([]);
+      }
+    };
+    
+    fetchAvailableStores();
+  }, []);
+
   return (
     <ProductFormDialog 
       initialData={product}
       onClose={onClose}
       onSubmit={onUpdate}
+      stores={stores}
     />
   );
 };

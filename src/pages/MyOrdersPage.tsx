@@ -5,14 +5,15 @@ import { useAuth } from '@/components/AuthComponents';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CartDisplay } from '@/components/CartComponents';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { fetchOrders, fetchOrderDetails } from '@/lib/supabaseHelpers';
+import { fetchOrders, fetchOrderDetails, addIngredientsFromCart } from '@/lib/supabaseHelpers';
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { format } from 'date-fns';
-import { ShoppingBag, Package } from 'lucide-react';
+import { Package, ShoppingCart, Check } from 'lucide-react';
 import { toast } from 'sonner';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface Order {
   id: string;
@@ -33,11 +34,24 @@ interface OrderItem {
     name: string;
     description?: string;
     price: number;
+    store_id?: string;
+    store?: {
+      id: string;
+      name: string;
+    };
   };
 }
 
 interface OrderWithItems extends Order {
   items: OrderItem[];
+}
+
+// Group items by store for display
+interface StoreGroup {
+  storeName: string;
+  storeId: string | null;
+  items: OrderItem[];
+  subtotal: number;
 }
 
 const MyOrdersPage = () => {
@@ -48,6 +62,9 @@ const MyOrdersPage = () => {
   const [selectedOrder, setSelectedOrder] = useState<OrderWithItems | null>(null);
   const [orderDetailsLoading, setOrderDetailsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState('cart');
+  const [confirmOrderDialogOpen, setConfirmOrderDialogOpen] = useState(false);
+  const [processingOrder, setProcessingOrder] = useState(false);
+  const [orderSuccessMessage, setOrderSuccessMessage] = useState('');
 
   useEffect(() => {
     if (user) {
@@ -83,6 +100,40 @@ const MyOrdersPage = () => {
     }
   };
 
+  const handleConfirmPurchase = () => {
+    setConfirmOrderDialogOpen(true);
+  };
+
+  const processPurchase = async () => {
+    if (!user) return;
+    
+    setProcessingOrder(true);
+    try {
+      // Add cart items to ingredients
+      await addIngredientsFromCart(user.id);
+      
+      // Refresh orders after purchase
+      await loadOrders();
+      
+      setOrderSuccessMessage('Your order has been processed successfully! Items have been added to your ingredients.');
+      setConfirmOrderDialogOpen(false);
+      
+      // Show success message
+      toast.success('Order confirmed! Items added to your ingredients');
+      
+      // Automatically switch to history tab after successful order
+      setTimeout(() => {
+        setActiveTab('history');
+      }, 1500);
+      
+    } catch (error) {
+      console.error('Error processing order:', error);
+      toast.error('Failed to process your order');
+    } finally {
+      setProcessingOrder(false);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     try {
       return format(new Date(dateString), 'MMM d, yyyy h:mm a');
@@ -95,10 +146,44 @@ const MyOrdersPage = () => {
     return id.substring(0, 8).toUpperCase();
   };
 
+  // Group order items by store
+  const groupItemsByStore = (items: OrderItem[]): StoreGroup[] => {
+    const storeGroups: Record<string, StoreGroup> = {};
+    
+    items.forEach(item => {
+      const storeId = item.products.store_id || 'no-store';
+      const storeName = item.products.store?.name || 'General Store';
+      
+      if (!storeGroups[storeId]) {
+        storeGroups[storeId] = {
+          storeId: storeId === 'no-store' ? null : storeId,
+          storeName,
+          items: [],
+          subtotal: 0
+        };
+      }
+      
+      storeGroups[storeId].items.push(item);
+      storeGroups[storeId].subtotal += item.price * item.quantity;
+    });
+    
+    return Object.values(storeGroups);
+  };
+
   return (
     <Layout>
       <div className="container mx-auto">
         <h1 className="text-2xl font-bold mb-6">My Orders</h1>
+        
+        {orderSuccessMessage && (
+          <Alert className="mb-4 bg-green-50 border-green-200">
+            <Check className="h-4 w-4 text-green-600" />
+            <AlertTitle>Success!</AlertTitle>
+            <AlertDescription>
+              {orderSuccessMessage}
+            </AlertDescription>
+          </Alert>
+        )}
         
         <Tabs 
           value={activeTab} 
@@ -106,15 +191,24 @@ const MyOrdersPage = () => {
           className="w-full"
         >
           <TabsList className="grid w-full grid-cols-2 mb-4">
-            <TabsTrigger value="cart">Current Cart</TabsTrigger>
-            <TabsTrigger value="history">Order History</TabsTrigger>
+            <TabsTrigger value="cart">
+              <ShoppingCart className="h-4 w-4 mr-2" />
+              Current Cart
+            </TabsTrigger>
+            <TabsTrigger value="history">
+              <Package className="h-4 w-4 mr-2" />
+              Order History
+            </TabsTrigger>
           </TabsList>
           
           <TabsContent value="cart">
-            <CartDisplay onOrderPlaced={() => {
-              loadOrders();
-              setActiveTab('history');
-            }} />
+            <CartDisplay 
+              onOrderPlaced={() => {
+                loadOrders();
+                setActiveTab('history');
+              }}
+              onConfirmPurchase={handleConfirmPurchase}
+            />
           </TabsContent>
           
           <TabsContent value="history">
@@ -182,7 +276,7 @@ const MyOrdersPage = () => {
       {/* Order Details Dialog */}
       {selectedOrder && (
         <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
-          <DialogContent className="sm:max-w-[600px]">
+          <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Order #{formatOrderId(selectedOrder.id)}</DialogTitle>
               <DialogDescription>
@@ -210,37 +304,83 @@ const MyOrdersPage = () => {
                     </p>
                   </div>
                 </div>
-                
-                <h3 className="font-medium mb-2">Items</h3>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Product</TableHead>
-                      <TableHead className="text-right">Quantity</TableHead>
-                      <TableHead className="text-right">Price</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {selectedOrder.items.map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell>{item.products.name}</TableCell>
-                        <TableCell className="text-right">{item.quantity}</TableCell>
-                        <TableCell className="text-right">${item.price.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">${(item.price * item.quantity).toFixed(2)}</TableCell>
-                      </TableRow>
-                    ))}
-                    <TableRow>
-                      <TableCell colSpan={3} className="text-right font-bold">Total</TableCell>
-                      <TableCell className="text-right font-bold">${selectedOrder.total_amount.toFixed(2)}</TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
+
+                {/* Group items by store */}
+                {groupItemsByStore(selectedOrder.items).map((storeGroup, index) => (
+                  <div key={index} className="mb-6">
+                    <h3 className="font-medium mb-2 flex items-center">
+                      <ShoppingCart className="h-4 w-4 mr-1" />
+                      {storeGroup.storeName}
+                    </h3>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Product</TableHead>
+                          <TableHead className="text-right">Quantity</TableHead>
+                          <TableHead className="text-right">Price</TableHead>
+                          <TableHead className="text-right">Total</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {storeGroup.items.map((item) => (
+                          <TableRow key={item.id}>
+                            <TableCell>{item.products.name}</TableCell>
+                            <TableCell className="text-right">{item.quantity}</TableCell>
+                            <TableCell className="text-right">${item.price.toFixed(2)}</TableCell>
+                            <TableCell className="text-right">${(item.price * item.quantity).toFixed(2)}</TableCell>
+                          </TableRow>
+                        ))}
+                        <TableRow>
+                          <TableCell colSpan={3} className="text-right font-medium">Subtotal</TableCell>
+                          <TableCell className="text-right font-medium">${storeGroup.subtotal.toFixed(2)}</TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </div>
+                ))}
+
+                <TableRow>
+                  <TableCell colSpan={3} className="text-right font-bold border-t">Order Total</TableCell>
+                  <TableCell className="text-right font-bold border-t">${selectedOrder.total_amount.toFixed(2)}</TableCell>
+                </TableRow>
               </div>
             )}
           </DialogContent>
         </Dialog>
       )}
+
+      {/* Confirm Purchase Dialog */}
+      <Dialog open={confirmOrderDialogOpen} onOpenChange={setConfirmOrderDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Your Purchase</DialogTitle>
+            <DialogDescription>
+              Once confirmed, items will be added to your ingredients.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <p className="text-gray-700">
+            This will simulate a purchase from the stores and automatically add the items to your ingredients list.
+          </p>
+          
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setConfirmOrderDialogOpen(false)}
+              disabled={processingOrder}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={processPurchase}
+              disabled={processingOrder}
+              className="bg-fridge-blue hover:bg-blue-700"
+            >
+              {processingOrder ? 'Processing...' : 'Confirm Purchase'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Layout>
   );
 };

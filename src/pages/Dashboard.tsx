@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/components/AuthComponents";
+import { generateMockIngredients, generateMockProducts } from '@/utils/seedData';
 
 interface FoodItem {
   id: string;
@@ -77,6 +78,19 @@ const Dashboard = () => {
     
     setLoading(true);
     fetchIngredients();
+  }, [user]);
+
+  // Add useEffect to generate mock data on dashboard load
+  useEffect(() => {
+    if (user) {
+      // Generate mock data silently
+      const initMockData = async () => {
+        await generateMockIngredients(user.id);
+        await generateMockProducts(user.id);
+      };
+      
+      initMockData();
+    }
   }, [user]);
 
   const getStatusColor = (status: string) => {
