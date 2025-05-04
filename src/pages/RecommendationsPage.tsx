@@ -568,7 +568,7 @@ const RecommendationsPage = () => {
                                 onClick={() => toggleFavorite(recipe.id)}
                               >
                                 <Heart 
-                                  className={`h-5 w-5 ${recipe.isFavorite ? 'fill-red-500 text-red-500' : 'text-gray-600'}`} 
+                                  className="h-5 w-5 fill-red-500 text-red-500" 
                                 />
                               </Button>
                             </div>
@@ -821,3 +821,41 @@ const RecommendationsPage = () => {
                     ))}
                   </ul>
                 </div>
+                
+                {selectedRecipe.instructions && selectedRecipe.instructions.length > 0 && (
+                  <div>
+                    <h3 className="font-medium mb-2">Instructions</h3>
+                    <ol className="list-decimal pl-5 space-y-2">
+                      {selectedRecipe.instructions.map((step, index) => (
+                        <li key={index} className="text-gray-600">{step}</li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+                
+                <div className="flex justify-between pt-4">
+                  {hasMissingIngredients(selectedRecipe) ? (
+                    <Button
+                      onClick={() => addRecipeToCart(selectedRecipe)}
+                      className="bg-fridge-blue hover:bg-blue-700"
+                    >
+                      <ShoppingCart className="h-4 w-4 mr-2" />
+                      Add Missing Ingredients to Cart
+                    </Button>
+                  ) : (
+                    <Button variant="outline" className="text-fridge-green border-fridge-green">
+                      <Check className="h-4 w-4 mr-2" />
+                      All Ingredients Available
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        )}
+      </div>
+    </Layout>
+  );
+};
+
+export default RecommendationsPage;
