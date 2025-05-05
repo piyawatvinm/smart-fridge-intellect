@@ -23,9 +23,11 @@ export interface Product {
   user_id?: string;
   store_id?: string;
   store?: {
+    id: string;
     name: string;
-    address: string;
+    address?: string;
   };
+  unit?: string;
 }
 
 interface Store {
@@ -73,7 +75,7 @@ const ProductsPage = () => {
           const store = storeList.find(s => s.id === product.store_id);
           return {
             ...product,
-            store: store ? { name: store.name, address: store.address } : undefined
+            store: store ? { id: store.id, name: store.name, address: store.address } : undefined
           };
         }
         return product;
