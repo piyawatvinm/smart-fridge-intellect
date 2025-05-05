@@ -1,12 +1,11 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   fetchCartItems, 
   addToCart as addToCartHelper, 
   removeFromCart, 
-  updateCartQuantity,
+  updateCartItemQuantity,
   fetchProductDetails,
-  placeOrder
+  addIngredientsFromCart
 } from '@/lib/supabaseHelpers';
 import { useAuth } from './AuthComponents';
 import { Button } from "@/components/ui/button";
@@ -88,7 +87,7 @@ export const CartDisplay: React.FC<CartDisplayProps> = ({
                 name: 'Unknown Product',
                 price: 0
               }
-            };
+            } as CartItem;
           } catch (err) {
             console.error(`Error fetching product ${item.product_id}:`, err);
             return {
@@ -98,7 +97,7 @@ export const CartDisplay: React.FC<CartDisplayProps> = ({
                 name: 'Unknown Product',
                 price: 0
               }
-            };
+            } as CartItem;
           }
         })
       );
@@ -133,7 +132,7 @@ export const CartDisplay: React.FC<CartDisplayProps> = ({
     if (!user || newQuantity < 1) return;
     
     try {
-      await updateCartQuantity(cartItemId, newQuantity);
+      await updateCartItemQuantity(cartItemId, newQuantity);
       setCartItems(cartItems.map(item => 
         item.id === cartItemId ? { ...item, quantity: newQuantity } : item
       ));
@@ -148,7 +147,7 @@ export const CartDisplay: React.FC<CartDisplayProps> = ({
     
     setPlacingOrder(true);
     try {
-      await placeOrder(user.id);
+      await addIngredientsFromCart(user.id);
       toast.success('Order placed successfully!');
       setCartItems([]);
       
@@ -364,6 +363,10 @@ export const CartDisplay: React.FC<CartDisplayProps> = ({
       </CardContent>
     </Card>
   );
+};
+
+export const CartIcon = () => {
+  return <ShoppingCart className="w-5 h-5" />;
 };
 
 interface AddToCartButtonProps {
