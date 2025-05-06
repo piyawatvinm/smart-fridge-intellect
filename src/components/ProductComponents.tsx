@@ -26,9 +26,11 @@ export interface Product {
   user_id?: string;
   store_id?: string;
   store?: {
+    id: string;
     name: string;
-    address: string;
+    address?: string;
   };
+  unit?: string;
 }
 
 interface Store {
