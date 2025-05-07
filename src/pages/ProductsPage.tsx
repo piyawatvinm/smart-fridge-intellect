@@ -45,6 +45,8 @@ const ProductsPage = () => {
   const loadProducts = async () => {
     setLoading(true);
     try {
+      console.log('Fetching products...');
+      
       // Fetch all products without filtering by user_id
       const { data: allProducts, error } = await supabase
         .from('products')
@@ -57,14 +59,20 @@ const ProductsPage = () => {
           )
         `);
       
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching products:', error);
+        throw error;
+      }
+      
+      console.log('Products fetched:', allProducts?.length || 0);
       
       // Fetch store data for products
       const storeList = await fetchStores();
       setStores(storeList);
+      console.log('Stores fetched:', storeList?.length || 0);
 
       // Enhance products with store information when available
-      const productsWithStoreInfo = allProducts.map(product => {
+      const productsWithStoreInfo = allProducts?.map(product => {
         // Make sure each product has the store_id property, even if it's null
         const enhancedProduct: Product = {
           ...product,
@@ -79,8 +87,9 @@ const ProductsPage = () => {
           };
         }
         return enhancedProduct;
-      });
+      }) || [];
       
+      console.log('Enhanced products:', productsWithStoreInfo.length);
       setProducts(productsWithStoreInfo);
       
     } catch (error) {
