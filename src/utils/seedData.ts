@@ -210,7 +210,7 @@ export const generateMockStores = async (userId) => {
   }
 };
 
-// Generate mock products
+// Generate mock products with ALL ingredients from recipes
 export const generateMockProducts = async (userId) => {
   try {
     // Check if any products already exist
@@ -235,8 +235,18 @@ export const generateMockProducts = async (userId) => {
       return;
     }
 
-    // Create mock products with store associations but no user_id
+    // Extract all unique ingredients from recipes
+    const recipes = generateMockRecipes();
+    const allIngredients = new Set();
+    recipes.forEach(recipe => {
+      recipe.ingredients.forEach(ingredient => {
+        allIngredients.add(ingredient.name);
+      });
+    });
+
+    // Create products for each ingredient plus additional common products
     const products = [
+      // Basic products that were already defined
       {
         name: 'Organic Apples',
         description: 'Fresh organic apples, locally grown',
@@ -275,6 +285,182 @@ export const generateMockProducts = async (userId) => {
         price: 4.99,
         category: 'Dairy',
         image_url: 'https://images.unsplash.com/photo-1506976785307-8732e854ad03?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
+        store_id: stores[2].id
+      },
+      
+      // Products for Spaghetti Bolognese
+      {
+        name: 'Ground Beef',
+        description: 'Premium ground beef, perfect for pasta dishes',
+        price: 5.99,
+        category: 'Meat',
+        image_url: 'https://images.unsplash.com/photo-1588168333986-5078d3ae3976?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
+        store_id: stores[0].id
+      },
+      {
+        name: 'Yellow Onions',
+        description: 'Fresh yellow onions, perfect for cooking',
+        price: 1.49,
+        category: 'Vegetables',
+        image_url: 'https://images.unsplash.com/photo-1518977956812-cd3dbadaaf31?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
+        store_id: stores[0].id
+      },
+      {
+        name: 'Garlic',
+        description: 'Fresh garlic bulbs',
+        price: 0.99,
+        category: 'Vegetables',
+        image_url: 'https://images.unsplash.com/photo-1615477550927-1cd5c024ebde?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
+        store_id: stores[1].id
+      },
+      {
+        name: 'Canned Tomatoes',
+        description: 'Organic whole peeled tomatoes',
+        price: 2.29,
+        category: 'Canned Goods',
+        image_url: 'https://images.unsplash.com/photo-1599983252945-c31c7b9a11b5?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
+        store_id: stores[1].id
+      },
+      {
+        name: 'Spaghetti',
+        description: 'Premium Italian spaghetti pasta',
+        price: 1.99,
+        category: 'Pasta',
+        image_url: 'https://images.unsplash.com/photo-1627634777217-c864268db30f?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
+        store_id: stores[2].id
+      },
+      {
+        name: 'Tomato Paste',
+        description: 'Concentrated tomato paste, perfect for sauces',
+        price: 1.29,
+        category: 'Canned Goods',
+        image_url: 'https://images.unsplash.com/photo-1505252585461-04db1eb84625?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
+        store_id: stores[2].id
+      },
+      
+      // Products for Chicken Caesar Salad
+      {
+        name: 'Chicken Breast',
+        description: 'Fresh boneless skinless chicken breast',
+        price: 6.99,
+        category: 'Meat',
+        image_url: 'https://images.unsplash.com/photo-1604503468506-a8da13d82791?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
+        store_id: stores[0].id
+      },
+      {
+        name: 'Romaine Lettuce',
+        description: 'Fresh crisp romaine lettuce',
+        price: 2.49,
+        category: 'Vegetables',
+        image_url: 'https://images.unsplash.com/photo-1622206151226-18ca2c9ab4a1?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
+        store_id: stores[1].id
+      },
+      {
+        name: 'Parmesan Cheese',
+        description: 'Aged Italian Parmesan cheese',
+        price: 4.99,
+        category: 'Dairy',
+        image_url: 'https://images.unsplash.com/photo-1646847401730-0ae0bc773454?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
+        store_id: stores[2].id
+      },
+      {
+        name: 'Croutons',
+        description: 'Seasoned garlic and herb croutons',
+        price: 1.99,
+        category: 'Bakery',
+        image_url: 'https://images.unsplash.com/photo-1596781914203-bf44c03ac3fc?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
+        store_id: stores[0].id
+      },
+      {
+        name: 'Caesar Dressing',
+        description: 'Creamy Caesar salad dressing',
+        price: 3.49,
+        category: 'Condiments',
+        image_url: 'https://images.unsplash.com/photo-1606923829579-0cb981a83e2e?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
+        store_id: stores[1].id
+      },
+      
+      // Products for Vegetarian Stir Fry
+      {
+        name: 'Tofu',
+        description: 'Extra firm tofu',
+        price: 2.99,
+        category: 'Vegetarian',
+        image_url: 'https://images.unsplash.com/photo-1546069901-5ec6a79120b0?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
+        store_id: stores[2].id
+      },
+      {
+        name: 'Bell Peppers',
+        description: 'Mixed red, yellow, and green bell peppers',
+        price: 3.99,
+        category: 'Vegetables',
+        image_url: 'https://images.unsplash.com/photo-1534240237849-c8873ebe6115?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
+        store_id: stores[0].id
+      },
+      {
+        name: 'Broccoli',
+        description: 'Fresh broccoli crowns',
+        price: 2.49,
+        category: 'Vegetables',
+        image_url: 'https://images.unsplash.com/photo-1615485500834-bc10199bc727?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
+        store_id: stores[1].id
+      },
+      {
+        name: 'Carrots',
+        description: 'Organic fresh carrots',
+        price: 1.49,
+        category: 'Vegetables',
+        image_url: 'https://images.unsplash.com/photo-1598170845047-a69259b3aa10?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
+        store_id: stores[2].id
+      },
+      {
+        name: 'Soy Sauce',
+        description: 'Premium low-sodium soy sauce',
+        price: 3.99,
+        category: 'Condiments',
+        image_url: 'https://images.unsplash.com/photo-1599940765561-21e7ea3bee83?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
+        store_id: stores[0].id
+      },
+      
+      // Products for Margherita Pizza
+      {
+        name: 'Pizza Dough',
+        description: 'Ready to use pizza dough',
+        price: 3.49,
+        category: 'Bakery',
+        image_url: 'https://images.unsplash.com/photo-1673272466110-9129ad5f8f26?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
+        store_id: stores[1].id
+      },
+      {
+        name: 'Fresh Mozzarella',
+        description: 'Italian fresh mozzarella cheese',
+        price: 4.99,
+        category: 'Dairy',
+        image_url: 'https://images.unsplash.com/photo-1618164435735-413d3b066c9a?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
+        store_id: stores[2].id
+      },
+      {
+        name: 'Fresh Tomatoes',
+        description: 'Vine-ripened tomatoes',
+        price: 2.99,
+        category: 'Vegetables',
+        image_url: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
+        store_id: stores[0].id
+      },
+      {
+        name: 'Fresh Basil',
+        description: 'Aromatic fresh basil leaves',
+        price: 2.49,
+        category: 'Herbs',
+        image_url: 'https://images.unsplash.com/photo-1600331322856-dc0cb7f22edf?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
+        store_id: stores[1].id
+      },
+      {
+        name: 'Olive Oil',
+        description: 'Extra virgin olive oil',
+        price: 6.99,
+        category: 'Oils',
+        image_url: 'https://images.unsplash.com/photo-1531816856617-4a81085efc49?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
         store_id: stores[2].id
       }
     ];
