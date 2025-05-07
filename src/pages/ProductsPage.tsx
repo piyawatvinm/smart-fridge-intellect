@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Layout } from '@/components/LayoutComponents';
 import { Button } from "@/components/ui/button";
@@ -5,11 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ProductCard, ProductFormDialog, Product } from '@/components/ProductComponents';
 import { useAuth } from '@/components/AuthComponents';
-import { fetchProducts, fetchUserProducts, fetchStores } from '@/lib/supabaseHelpers';
+import { fetchProducts, fetchStores } from '@/lib/supabaseHelpers';
 import { Skeleton } from "@/components/ui/skeleton";
 import { PlusCircle, Store } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Store {
   id: string;
@@ -23,13 +25,12 @@ const ProductsPage = () => {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const [products, setProducts] = useState<Product[]>([]);
-  const [userProducts, setUserProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all-categories');
   const [selectedStore, setSelectedStore] = useState<string>('all-stores');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'all' | 'my-products'>('all');
+  const [activeTab, setActiveTab] = useState<'all'>('all');
   const [stores, setStores] = useState<Store[]>([]);
 
   // Check if coming from recommendations or another source
@@ -44,7 +45,19 @@ const ProductsPage = () => {
   const loadProducts = async () => {
     setLoading(true);
     try {
-      const allProducts = await fetchProducts();
+      // Fetch all products without filtering by user_id
+      const { data: allProducts, error } = await supabase
+        .from('products')
+        .select(`
+          *,
+          store:store_id (
+            id,
+            name,
+            address
+          )
+        `);
+      
+      if (error) throw error;
       
       // Fetch store data for products
       const storeList = await fetchStores();
@@ -55,7 +68,7 @@ const ProductsPage = () => {
         // Make sure each product has the store_id property, even if it's null
         const enhancedProduct: Product = {
           ...product,
-          store_id: (product as any).store_id || null
+          store_id: product.store_id || null
         };
         
         if (enhancedProduct.store_id) {
@@ -70,10 +83,6 @@ const ProductsPage = () => {
       
       setProducts(productsWithStoreInfo);
       
-      if (user) {
-        const myProducts = await fetchUserProducts(user.id);
-        setUserProducts(myProducts);
-      }
     } catch (error) {
       console.error('Error loading products:', error);
       toast.error('Failed to load products');
@@ -84,9 +93,9 @@ const ProductsPage = () => {
 
   useEffect(() => {
     loadProducts();
-  }, [user]);
+  }, []);
 
-  const filteredProducts = (activeTab === 'all' ? products : userProducts).filter(product => {
+  const filteredProducts = products.filter(product => {
     const matchesSearch = searchTerm === '' || 
       product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (product.description?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false);
@@ -144,28 +153,10 @@ const ProductsPage = () => {
         <div className="mb-6">
           <div className="flex mb-4 space-x-2 border-b">
             <button
-              className={`px-4 py-2 font-medium ${
-                activeTab === 'all' 
-                  ? 'border-b-2 border-fridge-blue text-fridge-blue' 
-                  : 'text-gray-500'
-              }`}
-              onClick={() => setActiveTab('all')}
+              className="px-4 py-2 font-medium border-b-2 border-fridge-blue text-fridge-blue"
             >
               All Products
             </button>
-            
-            {user && (
-              <button
-                className={`px-4 py-2 font-medium ${
-                  activeTab === 'my-products' 
-                    ? 'border-b-2 border-fridge-blue text-fridge-blue' 
-                    : 'text-gray-500'
-                }`}
-                onClick={() => setActiveTab('my-products')}
-              >
-                My Products
-              </button>
-            )}
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -234,7 +225,7 @@ const ProductsPage = () => {
         ) : (
           <div className="py-12 text-center">
             <p className="text-gray-500">No products found</p>
-            {activeTab === 'my-products' && (
+            {user && (
               <Button 
                 onClick={() => setIsAddDialogOpen(true)}
                 variant="outline"

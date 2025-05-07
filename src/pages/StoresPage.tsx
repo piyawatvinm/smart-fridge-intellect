@@ -24,7 +24,7 @@ interface Store {
   featured?: boolean;
   openHours?: string;
   promotions?: string[];
-  user_id: string;
+  user_id: string | null;
 }
 
 const StoresPage = () => {
@@ -45,14 +45,12 @@ const StoresPage = () => {
   
   // Fetch stores from Supabase
   useEffect(() => {
-    const fetchStores = async () => {
-      if (!user) return;
-      
+    const fetchStores = async () => {      
       try {
+        // Fetch all stores without filtering by user_id
         const { data, error } = await supabase
           .from('stores')
-          .select('*')
-          .eq('user_id', user.id);
+          .select('*');
           
         if (error) throw error;
         
@@ -80,7 +78,7 @@ const StoresPage = () => {
     
     setLoading(true);
     fetchStores();
-  }, [user]);
+  }, []);
   
   // Helper functions for mock data generation
   const getRandomStoreType = (): 'grocery' | 'supermarket' | 'convenience' | 'specialty' => {
@@ -127,7 +125,7 @@ const StoresPage = () => {
         .insert({
           name: data.name,
           address: data.address,
-          user_id: user.id
+          user_id: null // Make it visible to all users
         })
         .select();
       

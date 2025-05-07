@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { Product } from "@/components/ProductComponents";
 
@@ -157,7 +158,7 @@ export const findProductsForIngredients = async (ingredientNames) => {
 // Generate mock stores
 export const generateMockStores = async (userId) => {
   try {
-    // Check if the user already has stores
+    // Check if any stores already exist
     const { data: existingStores } = await supabase
       .from('stores')
       .select('id')
@@ -175,26 +176,28 @@ export const generateMockStores = async (userId) => {
         address: '123 Main St',
         image_url: 'https://images.unsplash.com/photo-1534723452862-4c874018d66d?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
         description: 'Local grocery store with fresh produce',
-        user_id: userId
       },
       {
         name: 'Super Foods',
         address: '456 Oak Ave',
         image_url: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
         description: 'Supermarket with wide variety of foods',
-        user_id: userId
       },
       {
         name: 'Organic Choices',
         address: '789 Pine Blvd',
         image_url: 'https://images.unsplash.com/photo-1488459716781-31db52582fe9?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
         description: 'Specializing in organic and locally sourced foods',
-        user_id: userId
       }
     ];
 
-    // Insert mock stores
-    const { error } = await supabase.from('stores').insert(stores);
+    // Insert mock stores without user_id to make them visible to all users
+    const { error } = await supabase.from('stores').insert(
+      stores.map(store => ({
+        ...store,
+        user_id: null // Make visible to all users
+      }))
+    );
     
     if (error) {
       console.error('Error creating mock stores:', error);
@@ -210,11 +213,10 @@ export const generateMockStores = async (userId) => {
 // Generate mock products
 export const generateMockProducts = async (userId) => {
   try {
-    // Check if the user already has products
+    // Check if any products already exist
     const { data: existingProducts } = await supabase
       .from('products')
       .select('id')
-      .eq('user_id', userId)
       .limit(1);
 
     // If products already exist, don't recreate them
@@ -233,7 +235,7 @@ export const generateMockProducts = async (userId) => {
       return;
     }
 
-    // Create mock products with store associations
+    // Create mock products with store associations but no user_id
     const products = [
       {
         name: 'Organic Apples',
@@ -241,7 +243,6 @@ export const generateMockProducts = async (userId) => {
         price: 3.99,
         category: 'Fruits',
         image_url: 'https://images.unsplash.com/photo-1619546813926-a78fa6372cd2?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        user_id: userId,
         store_id: stores[0].id
       },
       {
@@ -250,7 +251,6 @@ export const generateMockProducts = async (userId) => {
         price: 2.49,
         category: 'Dairy',
         image_url: 'https://images.unsplash.com/photo-1563636619-e9143da7973b?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        user_id: userId,
         store_id: stores[0].id
       },
       {
@@ -259,7 +259,6 @@ export const generateMockProducts = async (userId) => {
         price: 2.99,
         category: 'Vegetables',
         image_url: 'https://images.unsplash.com/photo-1576045057995-568f588f82fb?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        user_id: userId,
         store_id: stores[1].id
       },
       {
@@ -268,7 +267,6 @@ export const generateMockProducts = async (userId) => {
         price: 3.49,
         category: 'Bakery',
         image_url: 'https://images.unsplash.com/photo-1589367920969-ab8e050bbb04?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        user_id: userId,
         store_id: stores[1].id
       },
       {
@@ -277,13 +275,17 @@ export const generateMockProducts = async (userId) => {
         price: 4.99,
         category: 'Dairy',
         image_url: 'https://images.unsplash.com/photo-1506976785307-8732e854ad03?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        user_id: userId,
         store_id: stores[2].id
       }
     ];
 
-    // Insert mock products
-    const { error } = await supabase.from('products').insert(products);
+    // Insert mock products without user_id to make them visible to all users
+    const { error } = await supabase.from('products').insert(
+      products.map(product => ({
+        ...product,
+        user_id: null // Make visible to all users
+      }))
+    );
     
     if (error) {
       console.error('Error creating mock products:', error);
@@ -368,5 +370,3 @@ export const generateMockIngredients = async (userId) => {
     console.error('Error in generateMockIngredients:', error);
   }
 };
-
-// Add any other utility functions as needed
