@@ -70,14 +70,20 @@ const ProductsPage = () => {
 
       // Enhance products with store information when available
       const productsWithStoreInfo = allProducts.map(product => {
-        if (product.store_id) {
-          const store = storeList.find(s => s.id === product.store_id);
+        // Make sure each product has the store_id property, even if it's null
+        const enhancedProduct: Product = {
+          ...product,
+          store_id: (product as any).store_id || null
+        };
+        
+        if (enhancedProduct.store_id) {
+          const store = storeList.find(s => s.id === enhancedProduct.store_id);
           return {
-            ...product,
+            ...enhancedProduct,
             store: store ? { id: store.id, name: store.name, address: store.address } : undefined
           };
         }
-        return product;
+        return enhancedProduct;
       });
       
       setProducts(productsWithStoreInfo);
