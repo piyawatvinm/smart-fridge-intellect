@@ -3,31 +3,13 @@ import { Layout } from '@/components/LayoutComponents';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ProductCard, ProductFormDialog } from '@/components/ProductComponents';
+import { ProductCard, ProductFormDialog, Product } from '@/components/ProductComponents';
 import { useAuth } from '@/components/AuthComponents';
 import { fetchProducts, fetchUserProducts, fetchStores } from '@/lib/supabaseHelpers';
 import { Skeleton } from "@/components/ui/skeleton";
 import { PlusCircle, Store } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-
-export interface Product {
-  id: string;
-  name: string;
-  description?: string;
-  price: number;
-  image_url?: string;
-  category?: string;
-  created_at?: string;
-  user_id?: string;
-  store_id?: string;
-  store?: {
-    id: string;
-    name: string;
-    address?: string;
-  };
-  unit?: string;
-}
 
 interface Store {
   id: string;

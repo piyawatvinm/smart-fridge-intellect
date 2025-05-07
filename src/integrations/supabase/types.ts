@@ -251,6 +251,7 @@ export type Database = {
           image_url: string | null
           name: string
           price: number
+          store_id: string | null
           user_id: string | null
         }
         Insert: {
@@ -261,6 +262,7 @@ export type Database = {
           image_url?: string | null
           name: string
           price: number
+          store_id?: string | null
           user_id?: string | null
         }
         Update: {
@@ -271,9 +273,18 @@ export type Database = {
           image_url?: string | null
           name?: string
           price?: number
+          store_id?: string | null
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "products_store_id_fkey"
+            columns: ["store_id"]
+            isOneToOne: false
+            referencedRelation: "stores"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       receipt_items: {
         Row: {
@@ -347,6 +358,74 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      recipe_ingredients: {
+        Row: {
+          created_at: string | null
+          id: string
+          ingredient_name: string
+          quantity: number | null
+          recipe_id: string | null
+          unit: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          ingredient_name: string
+          quantity?: number | null
+          recipe_id?: string | null
+          unit?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          ingredient_name?: string
+          quantity?: number | null
+          recipe_id?: string | null
+          unit?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recipe_ingredients_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      recipes: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          description: string | null
+          difficulty: string | null
+          id: string
+          image_url: string | null
+          name: string
+          preparation_time: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          difficulty?: string | null
+          id?: string
+          image_url?: string | null
+          name: string
+          preparation_time?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          difficulty?: string | null
+          id?: string
+          image_url?: string | null
+          name?: string
+          preparation_time?: string | null
+        }
+        Relationships: []
       }
       shopping_list_items: {
         Row: {
