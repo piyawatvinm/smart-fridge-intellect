@@ -117,23 +117,28 @@ export const updateRecipeAvailability = async (recipes, userId) => {
   }
 };
 
-// Update the findProductsForIngredients function to better match products with ingredients
-export const findProductsForIngredients = async (ingredientNames: string[]) => {
-  console.log('Finding products for ingredients:', ingredientNames);
-  
+// Helper function to find products for ingredients
+export const findProductsForIngredients = async (ingredientNames: string[]): Promise<Record<string, any[]>> => {
   try {
-    // Ensure mock products are generated first
-    await generateMockStores(null);
-    await generateMockProducts(null);
+    console.log('Finding products for ingredients:', ingredientNames);
     
-    const productMatches = {};
+    // Ensure mock data exists
+    try {
+      await generateMockStores(null);
+      await generateMockProducts(null);
+    } catch (error) {
+      console.error('Error ensuring mock data exists:', error);
+      // Continue execution even if there's an error with mock data generation
+    }
     
-    // For each ingredient, find matching products
+    const result: Record<string, any[]> = {};
+    
+    // For each ingredient name, find matching products
     for (const name of ingredientNames) {
-      console.log(`Searching for products matching: ${name}`);
+      console.log('Searching for products matching:', name);
       
-      // Query products that match the ingredient name
-      const { data: nameMatchProducts, error } = await supabase
+      // Query products where the name contains the ingredient name (case insensitive)
+      const { data: products, error } = await supabase
         .from('products')
         .select(`
           *,
@@ -144,114 +149,166 @@ export const findProductsForIngredients = async (ingredientNames: string[]) => {
           )
         `)
         .ilike('name', `%${name}%`);
-        
+      
       if (error) {
-        console.error(`Error finding products for ${name}:`, error);
-        throw error;
+        console.error('Error searching for products:', error);
+        result[name] = [];
+        continue;
       }
       
-      // Also query products by category that might match the ingredient
-      const { data: categoryProducts, error: categoryError } = await supabase
-        .from('products')
-        .select(`
-          *,
-          store:store_id (
-            id,
-            name,
-            address
-          )
-        `)
-        .ilike('category', `%${name}%`);
-        
-      if (categoryError) {
-        console.error(`Error finding category products for ${name}:`, categoryError);
+      // If no products match directly, try relaxing the search
+      if (!products || products.length === 0) {
+        // Split the ingredient name and search for parts
+        const parts = name.split(' ');
+        if (parts.length > 1) {
+          for (const part of parts) {
+            if (part.length < 3) continue; // Skip short words like "of", "to", etc.
+            
+            const { data: partProducts, error: partError } = await supabase
+              .from('products')
+              .select(`
+                *,
+                store:store_id (
+                  id,
+                  name,
+                  address
+                )
+              `)
+              .ilike('name', `%${part}%`);
+            
+            if (!partError && partProducts && partProducts.length > 0) {
+              // Add these products to the result for this ingredient
+              result[name] = partProducts;
+              console.log(`Found ${partProducts.length} products matching part "${part}" of ingredient "${name}"`);
+              break;
+            }
+          }
+        }
+      } else {
+        result[name] = products;
+        console.log(`Found ${products.length} products matching ingredient "${name}"`);
       }
       
-      // Combine results and remove duplicates
-      let allProducts = [...(nameMatchProducts || [])];
-      
-      if (categoryProducts) {
-        const uniqueCategoryProducts = categoryProducts.filter(
-          cp => !allProducts.some(p => p.id === cp.id)
-        );
-        allProducts = [...allProducts, ...uniqueCategoryProducts];
+      // If still no products found, check the category that might match
+      if (!result[name] || result[name].length === 0) {
+        const category = getCategoryForIngredient(name);
+        if (category) {
+          const { data: categoryProducts, error: categoryError } = await supabase
+            .from('products')
+            .select(`
+              *,
+              store:store_id (
+                id,
+                name,
+                address
+              )
+            `)
+            .eq('category', category);
+          
+          if (!categoryError && categoryProducts && categoryProducts.length > 0) {
+            result[name] = categoryProducts;
+            console.log(`Found ${categoryProducts.length} products by category "${category}" for ingredient "${name}"`);
+          } else {
+            result[name] = [];
+          }
+        } else {
+          result[name] = [];
+        }
       }
-      
-      console.log(`Found ${allProducts.length} products matching ingredient "${name}"`);
-      productMatches[name] = allProducts;
     }
     
-    return productMatches;
+    console.log('Products found:', result);
+    return result;
   } catch (error) {
-    console.error('Error in findProductsForIngredients:', error);
+    console.error('Error finding products for ingredients:', error);
     return {};
   }
 };
 
+// Helper function to determine ingredient category
+const getCategoryForIngredient = (name: string): string | null => {
+  const nameLower = name.toLowerCase();
+  
+  if (nameLower.includes('beef') || nameLower.includes('chicken') || nameLower.includes('pork') || 
+      nameLower.includes('fish') || nameLower.includes('meat')) {
+    return 'Meat';
+  } else if (nameLower.includes('milk') || nameLower.includes('cheese') || 
+            nameLower.includes('yogurt') || nameLower.includes('cream')) {
+    return 'Dairy';
+  } else if (nameLower.includes('apple') || nameLower.includes('banana') || 
+            nameLower.includes('berry') || nameLower.includes('fruit')) {
+    return 'Fruits';
+  } else if (nameLower.includes('potato') || nameLower.includes('onion') || 
+            nameLower.includes('carrot') || nameLower.includes('tomato') || 
+            nameLower.includes('vegetable')) {
+    return 'Vegetables';
+  } else if (nameLower.includes('pasta') || nameLower.includes('rice') || 
+            nameLower.includes('bread') || nameLower.includes('flour')) {
+    return 'Bakery';
+  }
+  
+  return null;
+};
+
 // Generate mock stores
-export const generateMockStores = async (userId) => {
+export const generateMockStores = async (userId: string | null): Promise<void> => {
   try {
-    // Check if any stores already exist
-    const { data: existingStores, error: checkError } = await supabase
+    // Check if stores already exist
+    const { data: existingStores, error } = await supabase
       .from('stores')
-      .select('id')
+      .select('*')
       .limit(1);
-      
-    if (checkError) {
-      console.error('Error checking existing stores:', checkError);
-      return;
-    }
-
-    // If stores already exist, don't recreate them
-    if (existingStores && existingStores.length > 0) {
-      console.log('Mock stores already exist, skipping creation');
-      return existingStores;
-    }
-
-    const stores = [
-      {
-        name: 'Fresh Market',
-        address: '123 Main St',
-        image_url: 'https://images.unsplash.com/photo-1534723452862-4c874018d66d?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        description: 'Local grocery store with fresh produce',
-      },
-      {
-        name: 'Super Foods',
-        address: '456 Oak Ave',
-        image_url: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        description: 'Supermarket with wide variety of foods',
-      },
-      {
-        name: 'Organic Choices',
-        address: '789 Pine Blvd',
-        image_url: 'https://images.unsplash.com/photo-1488459716781-31db52582fe9?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        description: 'Specializing in organic and locally sourced foods',
-      }
-    ];
-
-    // Insert mock stores without user_id to make them visible to all users
-    const { data, error } = await supabase.from('stores').insert(
-      stores.map(store => ({
-        ...store,
-        user_id: null // Make visible to all users
-      }))
-    ).select();
     
     if (error) {
-      console.error('Error creating mock stores:', error);
+      console.error('Error checking for stores:', error);
+      throw error;
+    }
+    
+    if (existingStores && existingStores.length > 0) {
+      console.log('Mock stores already exist, skipping creation');
       return;
     }
-
-    console.log('Mock stores created successfully:', data);
-    return data;
+    
+    console.log('No stores found, generating mock stores...');
+    
+    const mockStores = [
+      {
+        name: 'Grocery Heaven',
+        address: '123 Main Street, Anytown, USA',
+        user_id: userId
+      },
+      {
+        name: 'Fresh Market',
+        address: '456 Oak Avenue, Springfield, USA',
+        user_id: userId
+      },
+      {
+        name: 'Value Mart',
+        address: '789 Pine Road, Westville, USA',
+        user_id: userId
+      }
+    ];
+    
+    // Insert mock stores
+    const { error: insertError } = await supabase
+      .from('stores')
+      .insert(mockStores);
+    
+    if (insertError) {
+      console.error('Error creating mock stores:', insertError);
+      throw insertError;
+    }
+    
+    console.log('Successfully generated mock stores');
+    
   } catch (error) {
-    console.error('Error in generateMockStores:', error);
-    return [];
+    console.error('Error creating mock stores:', error);
+    throw error;
   }
 };
 
 // Generate mock products with ALL ingredients from recipes
-export const generateMockProducts = async (userId) => {
+export const generateMockProducts = async (userId: string | null): Promise<void> => {
   try {
     // Check if any products already exist
     const { data: existingProducts, error: checkError } = await supabase
@@ -538,7 +595,7 @@ export const generateMockProducts = async (userId) => {
 };
 
 // Generate mock ingredients
-export const generateMockIngredients = async (userId) => {
+export const generateMockIngredients = async (userId: string | null): Promise<void> => {
   try {
     // Check if the user already has ingredients
     const { data: existingIngredients } = await supabase
