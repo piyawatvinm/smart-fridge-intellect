@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Layout } from '@/components/LayoutComponents';
 import { Button } from "@/components/ui/button";
@@ -64,7 +65,7 @@ const ProductsPage = () => {
       console.log('Fetching products...');
       
       // Fetch all products without filtering by user_id
-      const { data: allProducts, error } = await supabase
+      let { data: productData, error } = await supabase
         .from('products')
         .select(`
           *,
@@ -80,9 +81,9 @@ const ProductsPage = () => {
         throw error;
       }
       
-      console.log('Products fetched:', allProducts?.length || 0);
+      console.log('Products fetched:', productData?.length || 0);
       
-      if (allProducts?.length === 0) {
+      if (!productData || productData.length === 0) {
         console.log('No products found, generating mock data...');
         await generateMockStores(null);
         await generateMockProducts(null);
@@ -104,8 +105,8 @@ const ProductsPage = () => {
           throw refreshError;
         }
         
-        allProducts = refreshedProducts;
-        console.log('Products after generation:', allProducts?.length || 0);
+        productData = refreshedProducts || [];
+        console.log('Products after generation:', productData.length);
       }
       
       // Fetch store data for products
@@ -114,7 +115,7 @@ const ProductsPage = () => {
       console.log('Stores fetched:', storeList?.length || 0);
 
       // Enhance products with store information when available
-      const productsWithStoreInfo = allProducts?.map(product => {
+      const productsWithStoreInfo = productData.map(product => {
         // Make sure each product has the store_id property, even if it's null
         const enhancedProduct: Product = {
           ...product,
@@ -129,7 +130,7 @@ const ProductsPage = () => {
           };
         }
         return enhancedProduct;
-      }) || [];
+      });
       
       console.log('Enhanced products:', productsWithStoreInfo.length);
       setProducts(productsWithStoreInfo);

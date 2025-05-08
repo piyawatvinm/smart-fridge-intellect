@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { Product } from "@/components/ProductComponents";
 
@@ -91,10 +92,13 @@ export const updateRecipeAvailability = async (recipes, userId) => {
     return recipes.map(recipe => {
       const updatedIngredients = recipe.ingredients.map(ingredient => {
         // Check if user has this ingredient (case-insensitive partial match)
-        const hasIngredient = ingredients.some(userIngredient => 
-          userIngredient.name.toLowerCase().includes(ingredient.name.toLowerCase()) ||
-          ingredient.name.toLowerCase().includes(userIngredient.name.toLowerCase())
-        );
+        const hasIngredient = ingredients.some(userIngredient => {
+          // Safely check if the properties exist and are strings before using toLowerCase()
+          const ingredientName = typeof ingredient.name === 'string' ? ingredient.name.toLowerCase() : '';
+          const userIngredientName = typeof userIngredient.name === 'string' ? userIngredient.name.toLowerCase() : '';
+          
+          return userIngredientName.includes(ingredientName) || ingredientName.includes(userIngredientName);
+        });
         
         return { ...ingredient, available: hasIngredient };
       });
