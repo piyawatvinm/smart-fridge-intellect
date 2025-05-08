@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Layout } from '@/components/LayoutComponents';
 import { Button } from "@/components/ui/button";
@@ -12,6 +11,7 @@ import { PlusCircle, Store } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { generateMockProducts, generateMockStores } from '@/utils/seedData';
 
 interface Store {
   id: string;
@@ -41,6 +41,22 @@ const ProductsPage = () => {
       document.title = 'Order Missing Ingredients - Smart Fridge';
     }
   }, [searchParams]);
+  
+  // Make sure mock data exists
+  useEffect(() => {
+    const ensureMockData = async () => {
+      try {
+        console.log("Ensuring mock data exists on Products Page...");
+        await generateMockStores(null);
+        await generateMockProducts(null);
+        console.log("Mock data check completed");
+      } catch (error) {
+        console.error("Error ensuring mock data:", error);
+      }
+    };
+    
+    ensureMockData();
+  }, []);
 
   const loadProducts = async () => {
     setLoading(true);
@@ -65,6 +81,32 @@ const ProductsPage = () => {
       }
       
       console.log('Products fetched:', allProducts?.length || 0);
+      
+      if (allProducts?.length === 0) {
+        console.log('No products found, generating mock data...');
+        await generateMockStores(null);
+        await generateMockProducts(null);
+        
+        // Try fetching again
+        const { data: refreshedProducts, error: refreshError } = await supabase
+          .from('products')
+          .select(`
+            *,
+            store:store_id (
+              id,
+              name,
+              address
+            )
+          `);
+          
+        if (refreshError) {
+          console.error('Error fetching products after generation:', refreshError);
+          throw refreshError;
+        }
+        
+        allProducts = refreshedProducts;
+        console.log('Products after generation:', allProducts?.length || 0);
+      }
       
       // Fetch store data for products
       const storeList = await fetchStores();

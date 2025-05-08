@@ -119,10 +119,16 @@ export const findProductsForIngredients = async (ingredientNames: string[]) => {
   console.log('Finding products for ingredients:', ingredientNames);
   
   try {
+    // Ensure mock products are generated first
+    await generateMockStores(null);
+    await generateMockProducts(null);
+    
     const productMatches = {};
     
     // For each ingredient, find matching products
     for (const name of ingredientNames) {
+      console.log(`Searching for products matching: ${name}`);
+      
       // Query products that match the ingredient name
       const { data: nameMatchProducts, error } = await supabase
         .from('products')
@@ -141,7 +147,7 @@ export const findProductsForIngredients = async (ingredientNames: string[]) => {
         throw error;
       }
       
-      // Also query products by category
+      // Also query products by category that might match the ingredient
       const { data: categoryProducts, error: categoryError } = await supabase
         .from('products')
         .select(`
@@ -152,7 +158,7 @@ export const findProductsForIngredients = async (ingredientNames: string[]) => {
             address
           )
         `)
-        .eq('category', name);
+        .ilike('category', `%${name}%`);
         
       if (categoryError) {
         console.error(`Error finding category products for ${name}:`, categoryError);
@@ -183,15 +189,20 @@ export const findProductsForIngredients = async (ingredientNames: string[]) => {
 export const generateMockStores = async (userId) => {
   try {
     // Check if any stores already exist
-    const { data: existingStores } = await supabase
+    const { data: existingStores, error: checkError } = await supabase
       .from('stores')
       .select('id')
       .limit(1);
+      
+    if (checkError) {
+      console.error('Error checking existing stores:', checkError);
+      return;
+    }
 
     // If stores already exist, don't recreate them
     if (existingStores && existingStores.length > 0) {
       console.log('Mock stores already exist, skipping creation');
-      return;
+      return existingStores;
     }
 
     const stores = [
@@ -216,21 +227,23 @@ export const generateMockStores = async (userId) => {
     ];
 
     // Insert mock stores without user_id to make them visible to all users
-    const { error } = await supabase.from('stores').insert(
+    const { data, error } = await supabase.from('stores').insert(
       stores.map(store => ({
         ...store,
         user_id: null // Make visible to all users
       }))
-    );
+    ).select();
     
     if (error) {
       console.error('Error creating mock stores:', error);
       return;
     }
 
-    console.log('Mock stores created successfully');
+    console.log('Mock stores created successfully:', data);
+    return data;
   } catch (error) {
     console.error('Error in generateMockStores:', error);
+    return [];
   }
 };
 
@@ -238,10 +251,15 @@ export const generateMockStores = async (userId) => {
 export const generateMockProducts = async (userId) => {
   try {
     // Check if any products already exist
-    const { data: existingProducts } = await supabase
+    const { data: existingProducts, error: checkError } = await supabase
       .from('products')
       .select('id')
       .limit(1);
+    
+    if (checkError) {
+      console.error('Error checking existing products:', checkError);
+      return;
+    }
 
     // If products already exist, don't recreate them
     if (existingProducts && existingProducts.length > 0) {
@@ -250,34 +268,57 @@ export const generateMockProducts = async (userId) => {
     }
 
     // Get stores to associate products with
-    const { data: stores } = await supabase
+    const { data: stores, error: storeError } = await supabase
       .from('stores')
       .select('id');
 
-    if (!stores || stores.length === 0) {
-      console.error('No stores found to associate products with');
+    if (storeError || !stores || stores.length === 0) {
+      const createdStores = await generateMockStores(userId);
+      if (!createdStores || createdStores.length === 0) {
+        console.error('No stores found to associate products with');
+        return;
+      }
+    }
+
+    // Fetch stores again if we had to create them
+    const { data: allStores } = await supabase
+      .from('stores')
+      .select('id');
+      
+    if (!allStores || allStores.length === 0) {
+      console.error('Still no stores found after creation attempt');
       return;
     }
 
     // Extract all unique ingredients from recipes
     const recipes = generateMockRecipes();
-    const allIngredients = new Set();
+    const allIngredientNames = new Set();
     recipes.forEach(recipe => {
       recipe.ingredients.forEach(ingredient => {
-        allIngredients.add(ingredient.name);
+        allIngredientNames.add(ingredient.name);
       });
     });
+    
+    console.log('Creating products for these ingredients:', Array.from(allIngredientNames));
 
-    // Create products for each ingredient plus additional common products
-    const products = [
-      // Basic products that were already defined
+    // Create products for each ingredient
+    const products = [];
+    
+    // Helper function to distribute products across stores
+    const getRandomStoreId = () => {
+      const randomIndex = Math.floor(Math.random() * allStores.length);
+      return allStores[randomIndex].id;
+    };
+
+    // Basic products that were already defined
+    products.push(
       {
         name: 'Organic Apples',
         description: 'Fresh organic apples, locally grown',
         price: 3.99,
         category: 'Fruits',
         image_url: 'https://images.unsplash.com/photo-1619546813926-a78fa6372cd2?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: stores[0].id
+        store_id: getRandomStoreId()
       },
       {
         name: 'Whole Milk',
@@ -285,7 +326,7 @@ export const generateMockProducts = async (userId) => {
         price: 2.49,
         category: 'Dairy',
         image_url: 'https://images.unsplash.com/photo-1563636619-e9143da7973b?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: stores[0].id
+        store_id: getRandomStoreId()
       },
       {
         name: 'Organic Spinach',
@@ -293,201 +334,94 @@ export const generateMockProducts = async (userId) => {
         price: 2.99,
         category: 'Vegetables',
         image_url: 'https://images.unsplash.com/photo-1576045057995-568f588f82fe?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: stores[1].id
-      },
-      {
-        name: 'Whole Grain Bread',
-        description: 'Freshly baked whole grain bread',
-        price: 3.49,
-        category: 'Bakery',
-        image_url: 'https://images.unsplash.com/photo-1589367920969-ab8e050bbb04?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: stores[1].id
-      },
-      {
-        name: 'Free-range Eggs',
-        description: 'Dozen free-range eggs from local farms',
-        price: 4.99,
-        category: 'Dairy',
-        image_url: 'https://images.unsplash.com/photo-1506976785307-8732e854ad03?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: stores[2].id
-      },
-      
-      // Products for Spaghetti Bolognese
-      {
+        store_id: getRandomStoreId()
+      }
+    );
+    
+    // Create specific products for each recipe ingredient
+    if (allIngredientNames.has('Ground beef')) {
+      products.push({
         name: 'Ground Beef',
         description: 'Premium ground beef, perfect for pasta dishes',
         price: 5.99,
         category: 'Meat',
         image_url: 'https://images.unsplash.com/photo-1588168333986-5078d3ae3976?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: stores[0].id
-      },
-      {
+        store_id: getRandomStoreId()
+      });
+    }
+    
+    if (allIngredientNames.has('Onion')) {
+      products.push({
         name: 'Yellow Onions',
         description: 'Fresh yellow onions, perfect for cooking',
         price: 1.49,
         category: 'Vegetables',
         image_url: 'https://images.unsplash.com/photo-1518977956812-cd3dbadaaf31?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: stores[0].id
-      },
-      {
+        store_id: getRandomStoreId()
+      });
+    }
+    
+    if (allIngredientNames.has('Garlic')) {
+      products.push({
         name: 'Garlic',
         description: 'Fresh garlic bulbs',
         price: 0.99,
         category: 'Vegetables',
         image_url: 'https://images.unsplash.com/photo-1615477550927-1cd5c024ebde?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: stores[1].id
-      },
-      {
+        store_id: getRandomStoreId()
+      });
+    }
+    
+    if (allIngredientNames.has('Canned tomatoes')) {
+      products.push({
         name: 'Canned Tomatoes',
         description: 'Organic whole peeled tomatoes',
         price: 2.29,
         category: 'Canned Goods',
         image_url: 'https://images.unsplash.com/photo-1599983252945-c31c7b9a11b5?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: stores[1].id
-      },
-      {
+        store_id: getRandomStoreId()
+      });
+    }
+    
+    if (allIngredientNames.has('Spaghetti')) {
+      products.push({
         name: 'Spaghetti',
         description: 'Premium Italian spaghetti pasta',
         price: 1.99,
         category: 'Pasta',
         image_url: 'https://images.unsplash.com/photo-1627634777217-c864268db30f?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: stores[2].id
-      },
-      {
+        store_id: getRandomStoreId()
+      });
+    }
+    
+    if (allIngredientNames.has('Tomato paste')) {
+      products.push({
         name: 'Tomato Paste',
         description: 'Concentrated tomato paste, perfect for sauces',
         price: 1.29,
         category: 'Canned Goods',
         image_url: 'https://images.unsplash.com/photo-1505252585461-04db1eb84625?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: stores[2].id
-      },
-      
-      // Products for Chicken Caesar Salad
-      {
-        name: 'Chicken Breast',
-        description: 'Fresh boneless skinless chicken breast',
-        price: 6.99,
-        category: 'Meat',
-        image_url: 'https://images.unsplash.com/photo-1604503468506-a8da13d82791?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: stores[0].id
-      },
-      {
-        name: 'Romaine Lettuce',
-        description: 'Fresh crisp romaine lettuce',
-        price: 2.49,
-        category: 'Vegetables',
-        image_url: 'https://images.unsplash.com/photo-1622206151226-18ca2c9ab4a1?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: stores[1].id
-      },
-      {
-        name: 'Parmesan Cheese',
-        description: 'Aged Italian Parmesan cheese',
-        price: 4.99,
-        category: 'Dairy',
-        image_url: 'https://images.unsplash.com/photo-1646847401730-0ae0bc773454?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: stores[2].id
-      },
-      {
-        name: 'Croutons',
-        description: 'Seasoned garlic and herb croutons',
-        price: 1.99,
-        category: 'Bakery',
-        image_url: 'https://images.unsplash.com/photo-1596781914203-bf44c03ac3fc?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: stores[0].id
-      },
-      {
-        name: 'Caesar Dressing',
-        description: 'Creamy Caesar salad dressing',
-        price: 3.49,
-        category: 'Condiments',
-        image_url: 'https://images.unsplash.com/photo-1606923829579-0cb981a83e2e?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: stores[1].id
-      },
-      
-      // Products for Vegetarian Stir Fry
-      {
-        name: 'Tofu',
-        description: 'Extra firm tofu',
-        price: 2.99,
-        category: 'Vegetarian',
-        image_url: 'https://images.unsplash.com/photo-1546069901-5ec6a79120b0?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: stores[2].id
-      },
-      {
-        name: 'Bell Peppers',
-        description: 'Mixed red, yellow, and green bell peppers',
-        price: 3.99,
-        category: 'Vegetables',
-        image_url: 'https://images.unsplash.com/photo-1534240237849-c8873ebe6115?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: stores[0].id
-      },
-      {
-        name: 'Broccoli',
-        description: 'Fresh broccoli crowns',
-        price: 2.49,
-        category: 'Vegetables',
-        image_url: 'https://images.unsplash.com/photo-1615485500834-bc10199bc727?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: stores[1].id
-      },
-      {
-        name: 'Carrots',
-        description: 'Organic fresh carrots',
-        price: 1.49,
-        category: 'Vegetables',
-        image_url: 'https://images.unsplash.com/photo-1598170845047-a69259b3aa10?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: stores[2].id
-      },
-      {
-        name: 'Soy Sauce',
-        description: 'Premium low-sodium soy sauce',
-        price: 3.99,
-        category: 'Condiments',
-        image_url: 'https://images.unsplash.com/photo-1599940765561-21e7ea3bee83?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: stores[0].id
-      },
-      
-      // Products for Margherita Pizza
-      {
-        name: 'Pizza Dough',
-        description: 'Ready to use pizza dough',
-        price: 3.49,
-        category: 'Bakery',
-        image_url: 'https://images.unsplash.com/photo-1673272466110-9129ad5f8f26?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: stores[1].id
-      },
-      {
-        name: 'Fresh Mozzarella',
-        description: 'Italian fresh mozzarella cheese',
-        price: 4.99,
-        category: 'Dairy',
-        image_url: 'https://images.unsplash.com/photo-1618164435735-413d3b066c9a?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: stores[2].id
-      },
-      {
-        name: 'Fresh Tomatoes',
-        description: 'Vine-ripened tomatoes',
-        price: 2.99,
-        category: 'Vegetables',
-        image_url: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: stores[0].id
-      },
-      {
-        name: 'Fresh Basil',
-        description: 'Aromatic fresh basil leaves',
-        price: 2.49,
-        category: 'Herbs',
-        image_url: 'https://images.unsplash.com/photo-1600331322856-dc0cb7f22edf?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: stores[1].id
-      },
-      {
-        name: 'Olive Oil',
-        description: 'Extra virgin olive oil',
-        price: 6.99,
-        category: 'Oils',
-        image_url: 'https://images.unsplash.com/photo-1531816856617-4a81085efc49?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: stores[2].id
-      }
-    ];
+        store_id: getRandomStoreId()
+      });
+    }
+    
+    // Add all other recipe ingredients
+    const remainingIngredients = Array.from(allIngredientNames).filter(ing => 
+      !products.some(p => p.name.toLowerCase().includes(ing.toLowerCase()))
+    );
+    
+    remainingIngredients.forEach(ingredient => {
+      products.push({
+        name: ingredient,
+        description: `Fresh ${ingredient}`,
+        price: (Math.random() * 5 + 1).toFixed(2),
+        category: ingredient.toLowerCase().includes('chicken') || ingredient.toLowerCase().includes('beef') ? 
+          'Meat' : ingredient.toLowerCase().includes('cheese') ? 
+          'Dairy' : 'Grocery',
+        image_url: 'https://images.unsplash.com/photo-1553546895-531931aa1aa8?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
+        store_id: getRandomStoreId()
+      });
+    });
 
     // Insert mock products without user_id to make them visible to all users
     const { error } = await supabase.from('products').insert(
@@ -502,7 +436,8 @@ export const generateMockProducts = async (userId) => {
       return;
     }
 
-    console.log('Mock products created successfully');
+    console.log(`Mock products created successfully: ${products.length} products`);
+    return products;
   } catch (error) {
     console.error('Error in generateMockProducts:', error);
   }

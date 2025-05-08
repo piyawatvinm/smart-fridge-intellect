@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Layout } from '@/components/LayoutComponents';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,7 +12,9 @@ import { toast } from 'sonner';
 import { 
   generateMockRecipes, 
   updateRecipeAvailability, 
-  findProductsForIngredients
+  findProductsForIngredients,
+  generateMockProducts,
+  generateMockStores
 } from '@/utils/seedData';
 import { addToCart } from '@/lib/supabaseHelpers';
 import { supabase } from '@/integrations/supabase/client';
@@ -29,6 +30,22 @@ const RecommendationsPage = () => {
   const [productsForIngredients, setProductsForIngredients] = useState<any>({});
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [addingToCart, setAddingToCart] = useState(false);
+  
+  // Make sure mock data is generated when the page loads
+  useEffect(() => {
+    const ensureMockData = async () => {
+      try {
+        console.log("Ensuring mock data exists...");
+        await generateMockStores(null);
+        await generateMockProducts(null);
+        console.log("Mock data check completed");
+      } catch (error) {
+        console.error("Error ensuring mock data:", error);
+      }
+    };
+    
+    ensureMockData();
+  }, []);
   
   // Load recipes and update availability based on user's ingredients
   useEffect(() => {
@@ -75,59 +92,10 @@ const RecommendationsPage = () => {
         const missingIngredientNames = missing.map(ing => ing.name);
         console.log('Looking for products for these ingredients:', missingIngredientNames);
         
-        // Use direct Supabase query instead of helper function
-        const productMatches = {};
+        // Use the findProductsForIngredients helper function
+        const productMatches = await findProductsForIngredients(missingIngredientNames);
         
-        for (const ingredient of missing) {
-          // Search for products with similar names to the ingredient
-          const { data: matchingProducts, error } = await supabase
-            .from('products')
-            .select(`
-              *,
-              store:store_id (
-                id,
-                name,
-                address
-              )
-            `)
-            .ilike('name', `%${ingredient.name}%`);
-            
-          if (error) {
-            console.error(`Error finding products for ${ingredient.name}:`, error);
-            throw error;
-          }
-          
-          // Also search by category that might match the ingredient
-          const { data: categoryProducts, error: categoryError } = await supabase
-            .from('products')
-            .select(`
-              *,
-              store:store_id (
-                id,
-                name,
-                address
-              )
-            `)
-            .eq('category', ingredient.name);
-            
-          if (categoryError) {
-            console.error(`Error finding category products for ${ingredient.name}:`, categoryError);
-          }
-          
-          // Combine both result sets and remove duplicates
-          let allMatchingProducts = [...(matchingProducts || [])];
-          
-          if (categoryProducts) {
-            const newProducts = categoryProducts.filter(
-              cp => !allMatchingProducts.some(mp => mp.id === cp.id)
-            );
-            allMatchingProducts = [...allMatchingProducts, ...newProducts];
-          }
-          
-          console.log(`Found ${allMatchingProducts.length} products for ${ingredient.name}`);
-          productMatches[ingredient.name] = allMatchingProducts;
-        }
-        
+        console.log('Products found:', productMatches);
         setProductsForIngredients(productMatches);
       } catch (error) {
         console.error('Error finding products for ingredients:', error);
