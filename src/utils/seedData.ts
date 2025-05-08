@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { Product } from "@/components/ProductComponents";
 
@@ -115,42 +114,67 @@ export const updateRecipeAvailability = async (recipes, userId) => {
   }
 };
 
-// Find products matching missing ingredients
-export const findProductsForIngredients = async (ingredientNames) => {
+// Update the findProductsForIngredients function to better match products with ingredients
+export const findProductsForIngredients = async (ingredientNames: string[]) => {
+  console.log('Finding products for ingredients:', ingredientNames);
+  
   try {
-    const results = {};
-    
-    // Get all products
-    const { data: products } = await supabase
-      .from('products')
-      .select(`
-        *,
-        store:store_id (
-          id,
-          name,
-          address
-        )
-      `);
-    
-    if (!products) return {};
+    const productMatches = {};
     
     // For each ingredient, find matching products
-    ingredientNames.forEach(ingredientName => {
-      const matchingProducts = products.filter(product => {
-        const productName = product.name.toLowerCase();
-        const ingredientLower = ingredientName.toLowerCase();
+    for (const name of ingredientNames) {
+      // Query products that match the ingredient name
+      const { data: nameMatchProducts, error } = await supabase
+        .from('products')
+        .select(`
+          *,
+          store:store_id (
+            id,
+            name,
+            address
+          )
+        `)
+        .ilike('name', `%${name}%`);
         
-        // Match product names that contain the ingredient name or vice versa
-        return productName.includes(ingredientLower) || 
-               ingredientLower.includes(productName);
-      });
+      if (error) {
+        console.error(`Error finding products for ${name}:`, error);
+        throw error;
+      }
       
-      results[ingredientName] = matchingProducts;
-    });
+      // Also query products by category
+      const { data: categoryProducts, error: categoryError } = await supabase
+        .from('products')
+        .select(`
+          *,
+          store:store_id (
+            id,
+            name,
+            address
+          )
+        `)
+        .eq('category', name);
+        
+      if (categoryError) {
+        console.error(`Error finding category products for ${name}:`, categoryError);
+      }
+      
+      // Combine results and remove duplicates
+      let allProducts = [...(nameMatchProducts || [])];
+      
+      if (categoryProducts) {
+        const uniqueCategoryProducts = categoryProducts.filter(
+          cp => !allProducts.some(p => p.id === cp.id)
+        );
+        allProducts = [...allProducts, ...uniqueCategoryProducts];
+      }
+      
+      console.log(`Found ${allProducts.length} products matching ingredient "${name}"`);
+      productMatches[name] = allProducts;
+    }
     
-    return results;
+    return productMatches;
   } catch (error) {
-    console.error('Error finding products for ingredients:', error);
+    console.error('Error in findProductsForIngredients:', error);
     return {};
   }
 };
@@ -268,7 +292,7 @@ export const generateMockProducts = async (userId) => {
         description: 'Fresh organic spinach',
         price: 2.99,
         category: 'Vegetables',
-        image_url: 'https://images.unsplash.com/photo-1576045057995-568f588f82fb?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
+        image_url: 'https://images.unsplash.com/photo-1576045057995-568f588f82fe?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
         store_id: stores[1].id
       },
       {

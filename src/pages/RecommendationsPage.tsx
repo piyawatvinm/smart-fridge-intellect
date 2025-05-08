@@ -16,6 +16,7 @@ import {
   findProductsForIngredients
 } from '@/utils/seedData';
 import { addToCart } from '@/lib/supabaseHelpers';
+import { supabase } from '@/integrations/supabase/client';
 
 const RecommendationsPage = () => {
   const { getUser } = useAuth();
@@ -72,10 +73,65 @@ const RecommendationsPage = () => {
       setLoadingProducts(true);
       try {
         const missingIngredientNames = missing.map(ing => ing.name);
-        const products = await findProductsForIngredients(missingIngredientNames);
-        setProductsForIngredients(products);
+        console.log('Looking for products for these ingredients:', missingIngredientNames);
+        
+        // Use direct Supabase query instead of helper function
+        const productMatches = {};
+        
+        for (const ingredient of missing) {
+          // Search for products with similar names to the ingredient
+          const { data: matchingProducts, error } = await supabase
+            .from('products')
+            .select(`
+              *,
+              store:store_id (
+                id,
+                name,
+                address
+              )
+            `)
+            .ilike('name', `%${ingredient.name}%`);
+            
+          if (error) {
+            console.error(`Error finding products for ${ingredient.name}:`, error);
+            throw error;
+          }
+          
+          // Also search by category that might match the ingredient
+          const { data: categoryProducts, error: categoryError } = await supabase
+            .from('products')
+            .select(`
+              *,
+              store:store_id (
+                id,
+                name,
+                address
+              )
+            `)
+            .eq('category', ingredient.name);
+            
+          if (categoryError) {
+            console.error(`Error finding category products for ${ingredient.name}:`, categoryError);
+          }
+          
+          // Combine both result sets and remove duplicates
+          let allMatchingProducts = [...(matchingProducts || [])];
+          
+          if (categoryProducts) {
+            const newProducts = categoryProducts.filter(
+              cp => !allMatchingProducts.some(mp => mp.id === cp.id)
+            );
+            allMatchingProducts = [...allMatchingProducts, ...newProducts];
+          }
+          
+          console.log(`Found ${allMatchingProducts.length} products for ${ingredient.name}`);
+          productMatches[ingredient.name] = allMatchingProducts;
+        }
+        
+        setProductsForIngredients(productMatches);
       } catch (error) {
         console.error('Error finding products for ingredients:', error);
+        toast.error('Failed to find matching products');
       } finally {
         setLoadingProducts(false);
       }
@@ -402,7 +458,17 @@ const RecommendationsPage = () => {
                                     ))}
                                   </div>
                                 ) : (
-                                  <p className="text-gray-500 text-sm">No matching products found</p>
+                                  <div className="text-gray-500 text-sm">
+                                    <p>No matching products found</p>
+                                    <Button 
+                                      variant="outline"
+                                      size="sm" 
+                                      className="mt-2"
+                                      onClick={handleBrowseProducts}
+                                    >
+                                      Browse Products
+                                    </Button>
+                                  </div>
                                 )}
                               </div>
                             );
