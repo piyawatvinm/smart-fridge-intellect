@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { useAuth } from './AuthComponents';
@@ -8,6 +7,44 @@ import { toast } from 'sonner';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useNavigate } from 'react-router-dom';
+import { Badge } from "@/components/ui/badge";
+
+// Add the CartIcon component that's being imported in LayoutComponents.tsx
+export const CartIcon = () => {
+  const { getUser } = useAuth();
+  const user = getUser();
+  const [cartCount, setCartCount] = useState(0);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (user) {
+      loadCartCount();
+    } else {
+      setCartCount(0);
+    }
+  }, [user]);
+
+  const loadCartCount = async () => {
+    if (!user) return;
+    try {
+      const items = await fetchCartItems(user.id);
+      setCartCount(items ? items.length : 0);
+    } catch (error) {
+      console.error('Error loading cart count:', error);
+    }
+  };
+
+  return (
+    <div className="relative" onClick={() => navigate('/my-orders')} style={{ cursor: 'pointer' }}>
+      <ShoppingCart className="h-5 w-5 text-gray-500" />
+      {cartCount > 0 && (
+        <Badge variant="destructive" className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs">
+          {cartCount}
+        </Badge>
+      )}
+    </div>
+  );
+};
 
 export const AddToCartButton = ({ productId, variant = 'default', size = 'default' }) => {
   const { getUser } = useAuth();
