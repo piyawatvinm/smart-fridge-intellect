@@ -3,7 +3,11 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchStores } from '@/lib/supabaseHelpers';
 import { toast } from 'sonner';
-import { generateMockProducts, generateMockStores, initializeAppData } from '@/utils/seedData';
+import { 
+  initializeProducts as generateMockProducts, 
+  initializeStores as generateMockStores, 
+  initializeAppData 
+} from '@/utils/seedData';
 import { Product } from '@/components/ProductComponents';
 
 interface Store {

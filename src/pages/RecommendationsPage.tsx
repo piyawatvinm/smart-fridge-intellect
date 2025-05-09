@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Layout } from '@/components/LayoutComponents';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,8 +14,8 @@ import {
   generateMockRecipes, 
   updateRecipeAvailability, 
   findProductsForIngredients,
-  generateMockProducts,
-  generateMockStores
+  initializeProducts as generateMockProducts,
+  initializeStores as generateMockStores
 } from '@/utils/seedData';
 import { addToCart } from '@/lib/supabaseHelpers';
 import { supabase } from '@/integrations/supabase/client';

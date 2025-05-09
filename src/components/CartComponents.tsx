@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { useAuth } from './AuthComponents';
@@ -84,6 +85,14 @@ export const AddToCartButton = ({ productId, variant = 'default', size = 'defaul
   );
 };
 
+// Define interface for store group
+interface StoreGroup {
+  storeName: string;
+  storeId: string | null;
+  items: any[];
+  subtotal: number;
+}
+
 export const CartDisplay = ({ onOrderPlaced, onConfirmPurchase }) => {
   const { getUser } = useAuth();
   const user = getUser();
@@ -146,8 +155,8 @@ export const CartDisplay = ({ onOrderPlaced, onConfirmPurchase }) => {
   };
 
   // Group cart items by store
-  const groupItemsByStore = () => {
-    const groups = {};
+  const groupItemsByStore = (): StoreGroup[] => {
+    const groups: Record<string, StoreGroup> = {};
     
     cartItems.forEach(item => {
       const storeId = item.products?.store_id || 'no-store';

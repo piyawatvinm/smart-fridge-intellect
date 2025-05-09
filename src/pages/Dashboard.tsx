@@ -2,9 +2,9 @@
 import React, { useEffect } from 'react';
 import { Layout } from '@/components/LayoutComponents';
 import { 
-  generateMockStores, 
-  generateMockProducts, 
-  generateMockIngredients 
+  initializeStores as generateMockStores, 
+  initializeProducts as generateMockProducts, 
+  initializeIngredients as generateMockIngredients 
 } from '@/utils/seedData';
 import { useAuth } from '@/components/AuthComponents';
 import { toast } from 'sonner';
