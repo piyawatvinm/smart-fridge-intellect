@@ -748,116 +748,187 @@ export const fetchStores = async () => {
 
 // Add ingredients from cart items to ingredients table and clear cart
 export const addIngredientsFromCart = async (userId: string) => {
-  // First get the cart items
-  const { data: cartItems, error: cartError } = await supabase
-    .from('cart_items')
-    .select('*')
-    .eq('user_id', userId);
-  
-  if (cartError) {
-    console.error('Error fetching cart items:', cartError);
-    throw cartError;
-  }
-  
-  if (!cartItems || cartItems.length === 0) {
-    return null;
-  }
-  
-  // Get product details for each cart item
-  const productIds = cartItems.map(item => item.product_id);
-  const { data: products, error: productsError } = await supabase
-    .from('products')
-    .select('*')
-    .in('id', productIds);
-  
-  if (productsError) {
-    console.error('Error fetching products:', productsError);
-    throw productsError;
-  }
-  
-  // Map cart items to ingredients
-  const ingredients = cartItems.map(item => {
-    const product = products?.find(p => p.id === item.product_id);
+  try {
+    // First get the cart items
+    const { data: cartItems, error: cartError } = await supabase
+      .from('cart_items')
+      .select(`
+        *,
+        products:product_id (*)
+      `)
+      .eq('user_id', userId);
     
-    // Set expiry date to 7 days in the future
-    const expiryDate = new Date();
-    expiryDate.setDate(expiryDate.getDate() + 7);
+    if (cartError) {
+      console.error('Error fetching cart items:', cartError);
+      throw cartError;
+    }
     
-    return {
-      name: product?.name || 'Unknown Product',
-      quantity: item.quantity,
-      unit: 'unit',
-      category: product?.category || 'Other',
-      expiry_date: expiryDate.toISOString().split('T')[0],
-      user_id: userId
-    };
-  });
-  
-  // Insert ingredients
-  const { error: ingredientsError } = await supabase
-    .from('ingredients')
-    .insert(ingredients);
-  
-  if (ingredientsError) {
-    console.error('Error adding ingredients:', ingredientsError);
-    throw ingredientsError;
-  }
-  
-  // Create an order
-  const total_amount = products?.reduce((sum, product) => {
-    const cartItem = cartItems.find(item => item.product_id === product.id);
-    return sum + (product.price * (cartItem?.quantity || 0));
-  }, 0) || 0;
-  
-  const { data: order, error: orderError } = await supabase
-    .from('orders')
-    .insert([
-      {
-        user_id: userId,
-        total_amount,
-        status: 'completed'
-      }
-    ])
-    .select();
-  
-  if (orderError) {
-    console.error('Error creating order:', orderError);
-    throw orderError;
-  }
-  
-  // Create order items
-  if (order && order.length > 0) {
-    const orderItems = cartItems.map(item => {
-      const product = products?.find(p => p.id === item.product_id);
+    if (!cartItems || cartItems.length === 0) {
+      return null;
+    }
+    
+    // For each cart item, check if ingredient already exists and update or add
+    for (const item of cartItems) {
+      const product = item.products;
       
-      return {
+      if (!product) {
+        console.error('Product not found for cart item:', item);
+        continue;
+      }
+      
+      // Check if the ingredient already exists with the same product_id
+      const { data: existingIngredient } = await supabase
+        .from('ingredients')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('product_id', product.id)
+        .maybeSingle();
+      
+      // Set expiry date to 7-14 days in the future depending on product category
+      const daysToAdd = getCategoryShelfLife(product.category || getCategoryForItem(product.name));
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + daysToAdd);
+      
+      if (existingIngredient) {
+        // Update quantity if ingredient exists
+        await supabase
+          .from('ingredients')
+          .update({
+            quantity: existingIngredient.quantity + item.quantity,
+            expiry_date: expiryDate.toISOString().split('T')[0]
+          })
+          .eq('id', existingIngredient.id);
+      } else {
+        // Add new ingredient with product reference
+        await supabase
+          .from('ingredients')
+          .insert([{
+            user_id: userId,
+            name: product.name,
+            quantity: item.quantity,
+            unit: product.unit || 'unit',
+            category: product.category || getCategoryForItem(product.name),
+            expiry_date: expiryDate.toISOString().split('T')[0],
+            product_id: product.id
+          }]);
+      }
+    }
+    
+    // Create an order
+    const total_amount = cartItems.reduce((sum, item) => {
+      const price = item.products?.price || 0;
+      return sum + (price * (item.quantity || 0));
+    }, 0);
+    
+    // Group cart items by store for creating separate orders
+    const itemsByStore: Record<string, any[]> = {};
+    cartItems.forEach(item => {
+      const storeId = item.products?.store_id || 'unknown';
+      if (!itemsByStore[storeId]) {
+        itemsByStore[storeId] = [];
+      }
+      itemsByStore[storeId].push(item);
+    });
+    
+    const orderIds: string[] = [];
+    
+    // Create an order for each store
+    for (const [storeId, storeItems] of Object.entries(itemsByStore)) {
+      const storeTotal = storeItems.reduce((sum, item) => {
+        const price = item.products?.price || 0;
+        return sum + (price * (item.quantity || 0));
+      }, 0);
+      
+      // Create the order
+      const { data: order, error: orderError } = await supabase
+        .from('orders')
+        .insert([
+          {
+            user_id: userId,
+            total_amount: storeTotal,
+            status: 'completed',
+            store_id: storeId !== 'unknown' ? storeId : null
+          }
+        ])
+        .select();
+      
+      if (orderError) {
+        console.error('Error creating order:', orderError);
+        continue;
+      }
+      
+      if (!order || order.length === 0) {
+        console.error('No order returned after creation');
+        continue;
+      }
+      
+      orderIds.push(order[0].id);
+      
+      // Create order items
+      const orderItems = storeItems.map(item => ({
         order_id: order[0].id,
         product_id: item.product_id,
         quantity: item.quantity,
-        price: product?.price || 0
-      };
-    });
-    
-    const { error: orderItemsError } = await supabase
-      .from('order_items')
-      .insert(orderItems);
-    
-    if (orderItemsError) {
-      console.error('Error creating order items:', orderItemsError);
-      throw orderItemsError;
+        price: item.products?.price || 0
+      }));
+      
+      const { error: orderItemsError } = await supabase
+        .from('order_items')
+        .insert(orderItems);
+      
+      if (orderItemsError) {
+        console.error('Error creating order items:', orderItemsError);
+      }
     }
+    
+    // Clear the cart
+    const { error: clearCartError } = await supabase
+      .from('cart_items')
+      .delete()
+      .eq('user_id', userId);
+    
+    if (clearCartError) {
+      console.error('Error clearing cart:', clearCartError);
+      throw clearCartError;
+    }
+    
+    // Create a notification for the order
+    if (orderIds.length > 0) {
+      await createNotification(
+        userId,
+        'Orders Completed',
+        `Your orders have been processed and ${cartItems.length} items added to your ingredients.`,
+        'order',
+        orderIds[0] // Reference the first order
+      );
+    }
+    
+    return orderIds;
+  } catch (error) {
+    console.error('Error adding ingredients from cart:', error);
+    throw error;
   }
-  
-  // Clear the cart
-  const { error: clearCartError } = await supabase
-    .from('cart_items')
-    .delete()
-    .eq('user_id', userId);
-  
-  if (clearCartError) {
-    console.error('Error clearing cart:', clearCartError);
-    throw clearCartError;
-  }
-  
-  return order?.[0] || null;
 };
+
+// Get shelf life in days based on category
+function getCategoryShelfLife(category: string): number {
+  category = category.toLowerCase();
+  
+  // Return shelf life in days
+  switch (category) {
+    case 'meat':
+    case 'seafood':
+      return 3; // 3 days
+    case 'dairy':
+      return 7; // 7 days
+    case 'fruits':
+    case 'vegetables':
+      return 10; // 10 days
+    case 'bakery':
+      return 5; // 5 days
+    case 'frozen foods':
+      return 30; // 30 days
+    default:
+      return 14; // 14 days default
+  }
+}

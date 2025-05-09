@@ -1,79 +1,461 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { Product } from "@/components/ProductComponents";
 
-// Generate mock recipes for recommendations
-export const generateMockRecipes = () => {
-  return [
-    {
-      id: '1',
-      name: 'Classic Spaghetti Bolognese',
-      description: 'A traditional Italian pasta dish with rich meat sauce.',
-      imageUrl: 'https://images.unsplash.com/photo-1551892374-ecf8754cf8b0?auto=format&fit=crop&q=80&w=2344&ixlib=rb-4.0.3',
-      preparationTime: '30 minutes',
-      difficulty: 'Easy',
-      category: 'Italian',
-      ingredients: [
-        { name: 'Ground beef', quantity: 500, unit: 'g', available: false },
-        { name: 'Onion', quantity: 1, unit: 'medium', available: false },
-        { name: 'Garlic', quantity: 2, unit: 'cloves', available: false },
-        { name: 'Canned tomatoes', quantity: 400, unit: 'g', available: false },
-        { name: 'Spaghetti', quantity: 350, unit: 'g', available: false },
-        { name: 'Tomato paste', quantity: 2, unit: 'tbsp', available: false },
-      ],
-      missingCount: 6
-    },
-    {
-      id: '2',
-      name: 'Classic Chicken Caesar Salad',
-      description: 'Fresh romaine lettuce with grilled chicken and Caesar dressing.',
-      imageUrl: 'https://images.unsplash.com/photo-1550304943-4f24f54ddde9?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-      preparationTime: '20 minutes',
-      difficulty: 'Easy',
-      category: 'Salad',
-      ingredients: [
-        { name: 'Chicken breast', quantity: 2, unit: 'pieces', available: false },
-        { name: 'Romaine lettuce', quantity: 1, unit: 'head', available: false },
-        { name: 'Parmesan cheese', quantity: 50, unit: 'g', available: false },
-        { name: 'Croutons', quantity: 100, unit: 'g', available: false },
-        { name: 'Caesar dressing', quantity: 60, unit: 'ml', available: false },
-      ],
-      missingCount: 5
-    },
-    {
-      id: '3',
-      name: 'Vegetarian Stir Fry',
-      description: 'Quick and healthy vegetable stir fry with tofu.',
-      imageUrl: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-      preparationTime: '15 minutes',
-      difficulty: 'Easy',
-      category: 'Vegetarian',
-      ingredients: [
-        { name: 'Tofu', quantity: 200, unit: 'g', available: false },
-        { name: 'Bell peppers', quantity: 2, unit: 'medium', available: false },
-        { name: 'Broccoli', quantity: 1, unit: 'head', available: false },
-        { name: 'Carrot', quantity: 2, unit: 'medium', available: false },
-        { name: 'Soy sauce', quantity: 3, unit: 'tbsp', available: false },
-      ],
-      missingCount: 5
-    },
-    {
-      id: '4',
-      name: 'Homemade Margherita Pizza',
-      description: 'Classic pizza with fresh mozzarella, tomatoes, and basil.',
-      imageUrl: 'https://images.unsplash.com/photo-1604382354936-07c5d9983bd3?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-      preparationTime: '40 minutes',
-      difficulty: 'Medium',
-      category: 'Italian',
-      ingredients: [
-        { name: 'Pizza dough', quantity: 1, unit: 'ball', available: false },
-        { name: 'Fresh mozzarella', quantity: 200, unit: 'g', available: false },
-        { name: 'Tomatoes', quantity: 3, unit: 'medium', available: false },
-        { name: 'Fresh basil', quantity: 10, unit: 'leaves', available: false },
-        { name: 'Olive oil', quantity: 2, unit: 'tbsp', available: false },
-      ],
-      missingCount: 5
-    },
-  ];
+// Mock store data with names, locations, and logo URLs
+const MOCK_STORES = [
+  {
+    name: 'Makro',
+    location: 'Bangkok, Thailand',
+    logo_url: 'https://placehold.co/200x200?text=Makro'
+  },
+  {
+    name: 'Lotus',
+    location: 'Chiang Mai, Thailand',
+    logo_url: 'https://placehold.co/200x200?text=Lotus'
+  },
+  {
+    name: 'BigC',
+    location: 'Pattaya, Thailand',
+    logo_url: 'https://placehold.co/200x200?text=BigC'
+  },
+  {
+    name: 'Villa Market',
+    location: 'Sukhumvit, Bangkok',
+    logo_url: 'https://placehold.co/200x200?text=Villa'
+  },
+  {
+    name: 'Tops',
+    location: 'Silom, Bangkok',
+    logo_url: 'https://placehold.co/200x200?text=Tops'
+  },
+  {
+    name: 'Foodland',
+    location: 'Huai Khwang, Bangkok',
+    logo_url: 'https://placehold.co/200x200?text=Foodland'
+  },
+  {
+    name: 'Gourmet Market',
+    location: 'Siam Paragon, Bangkok',
+    logo_url: 'https://placehold.co/200x200?text=Gourmet'
+  },
+  {
+    name: '7-Eleven',
+    location: 'Nationwide',
+    logo_url: 'https://placehold.co/200x200?text=7-Eleven'
+  },
+  {
+    name: 'Tesco',
+    location: 'Nationwide',
+    logo_url: 'https://placehold.co/200x200?text=Tesco'
+  },
+  {
+    name: 'CJ Express',
+    location: 'Nationwide',
+    logo_url: 'https://placehold.co/200x200?text=CJ+Express'
+  }
+];
+
+// Mock product categories
+const PRODUCT_CATEGORIES = [
+  'Dairy', 'Meat', 'Seafood', 'Vegetables', 'Fruits', 'Bakery', 
+  'Condiments', 'Beverages', 'Snacks', 'Frozen Foods', 'Canned Goods'
+];
+
+// Mock product data with details
+const MOCK_PRODUCTS = [
+  { name: 'Fresh Milk', category: 'Dairy', unit: 'liter', price: 45.00 },
+  { name: 'Organic Eggs', category: 'Dairy', unit: 'dozen', price: 85.00 },
+  { name: 'Chicken Breast', category: 'Meat', unit: 'kg', price: 120.00 },
+  { name: 'Ground Beef', category: 'Meat', unit: 'kg', price: 250.00 },
+  { name: 'Pork Chops', category: 'Meat', unit: 'kg', price: 180.00 },
+  { name: 'Fresh Salmon', category: 'Seafood', unit: 'kg', price: 450.00 },
+  { name: 'Shrimp', category: 'Seafood', unit: 'kg', price: 350.00 },
+  { name: 'Broccoli', category: 'Vegetables', unit: 'kg', price: 60.00 },
+  { name: 'Spinach', category: 'Vegetables', unit: 'bundle', price: 35.00 },
+  { name: 'Lettuce', category: 'Vegetables', unit: 'head', price: 40.00 },
+  { name: 'Tomatoes', category: 'Vegetables', unit: 'kg', price: 45.00 },
+  { name: 'Onions', category: 'Vegetables', unit: 'kg', price: 30.00 },
+  { name: 'Garlic', category: 'Vegetables', unit: 'kg', price: 80.00 },
+  { name: 'Bell Peppers', category: 'Vegetables', unit: 'kg', price: 90.00 },
+  { name: 'Mushrooms', category: 'Vegetables', unit: 'pack', price: 40.00 },
+  { name: 'Apples', category: 'Fruits', unit: 'kg', price: 120.00 },
+  { name: 'Bananas', category: 'Fruits', unit: 'kg', price: 45.00 },
+  { name: 'Oranges', category: 'Fruits', unit: 'kg', price: 80.00 },
+  { name: 'Strawberries', category: 'Fruits', unit: 'pack', price: 100.00 },
+  { name: 'Blueberries', category: 'Fruits', unit: 'pack', price: 150.00 },
+  { name: 'Whole Wheat Bread', category: 'Bakery', unit: 'loaf', price: 55.00 },
+  { name: 'Croissants', category: 'Bakery', unit: 'pack', price: 120.00 },
+  { name: 'Bagels', category: 'Bakery', unit: 'pack', price: 85.00 },
+  { name: 'Cheddar Cheese', category: 'Dairy', unit: 'kg', price: 350.00 },
+  { name: 'Mozzarella', category: 'Dairy', unit: 'pack', price: 180.00 },
+  { name: 'Greek Yogurt', category: 'Dairy', unit: 'cup', price: 45.00 },
+  { name: 'Butter', category: 'Dairy', unit: 'pack', price: 95.00 },
+  { name: 'Tofu', category: 'Vegetarian', unit: 'pack', price: 60.00 },
+  { name: 'Olive Oil', category: 'Condiments', unit: 'bottle', price: 250.00 },
+  { name: 'Soy Sauce', category: 'Condiments', unit: 'bottle', price: 85.00 },
+  { name: 'Rice', category: 'Grains', unit: 'kg', price: 75.00 },
+  { name: 'Pasta', category: 'Grains', unit: 'pack', price: 65.00 },
+  { name: 'Cereal', category: 'Breakfast', unit: 'box', price: 120.00 },
+  { name: 'Orange Juice', category: 'Beverages', unit: 'liter', price: 95.00 },
+  { name: 'Sparkling Water', category: 'Beverages', unit: 'bottle', price: 35.00 }
+];
+
+// Mock recipe data
+const MOCK_RECIPES = [
+  {
+    name: 'Classic Spaghetti Bolognese',
+    description: 'A traditional Italian pasta dish with rich meat sauce.',
+    imageUrl: 'https://images.unsplash.com/photo-1551892374-ecf8754cf8b0?auto=format&fit=crop&q=80&w=2344&ixlib=rb-4.0.3',
+    preparationTime: '30 minutes',
+    difficulty: 'Easy',
+    category: 'Italian',
+    ingredients: [
+      { name: 'Ground Beef', quantity: 500, unit: 'g' },
+      { name: 'Onions', quantity: 1, unit: 'medium' },
+      { name: 'Garlic', quantity: 2, unit: 'cloves' },
+      { name: 'Tomatoes', quantity: 400, unit: 'g' },
+      { name: 'Pasta', quantity: 350, unit: 'g' },
+      { name: 'Olive Oil', quantity: 2, unit: 'tbsp' },
+    ]
+  },
+  {
+    name: 'Chicken Caesar Salad',
+    description: 'Fresh romaine lettuce with grilled chicken and Caesar dressing.',
+    imageUrl: 'https://images.unsplash.com/photo-1550304943-4f24f54ddde9?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
+    preparationTime: '20 minutes',
+    difficulty: 'Easy',
+    category: 'Salad',
+    ingredients: [
+      { name: 'Chicken Breast', quantity: 2, unit: 'pieces' },
+      { name: 'Lettuce', quantity: 1, unit: 'head' },
+      { name: 'Cheddar Cheese', quantity: 50, unit: 'g' },
+      { name: 'Whole Wheat Bread', quantity: 2, unit: 'slices' },
+      { name: 'Olive Oil', quantity: 1, unit: 'tbsp' },
+    ]
+  },
+  {
+    name: 'Vegetarian Stir Fry',
+    description: 'Quick and healthy vegetable stir fry with tofu.',
+    imageUrl: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
+    preparationTime: '15 minutes',
+    difficulty: 'Easy',
+    category: 'Vegetarian',
+    ingredients: [
+      { name: 'Tofu', quantity: 200, unit: 'g' },
+      { name: 'Bell Peppers', quantity: 2, unit: 'medium' },
+      { name: 'Broccoli', quantity: 1, unit: 'head' },
+      { name: 'Mushrooms', quantity: 200, unit: 'g' },
+      { name: 'Soy Sauce', quantity: 3, unit: 'tbsp' },
+      { name: 'Rice', quantity: 200, unit: 'g' },
+    ]
+  },
+  {
+    name: 'Homemade Margherita Pizza',
+    description: 'Classic pizza with fresh mozzarella, tomatoes, and basil.',
+    imageUrl: 'https://images.unsplash.com/photo-1604382354936-07c5d9983bd3?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
+    preparationTime: '40 minutes',
+    difficulty: 'Medium',
+    category: 'Italian',
+    ingredients: [
+      { name: 'Whole Wheat Bread', quantity: 1, unit: 'ball' }, // Pizza dough substitute
+      { name: 'Mozzarella', quantity: 200, unit: 'g' },
+      { name: 'Tomatoes', quantity: 3, unit: 'medium' },
+      { name: 'Olive Oil', quantity: 2, unit: 'tbsp' },
+    ]
+  },
+  {
+    name: 'Healthy Breakfast Bowl',
+    description: 'Nutritious breakfast with yogurt, fruits, and cereal.',
+    imageUrl: 'https://images.unsplash.com/photo-1511690656952-34342bb7c2f2?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
+    preparationTime: '10 minutes',
+    difficulty: 'Easy',
+    category: 'Breakfast',
+    ingredients: [
+      { name: 'Greek Yogurt', quantity: 1, unit: 'cup' },
+      { name: 'Strawberries', quantity: 100, unit: 'g' },
+      { name: 'Blueberries', quantity: 50, unit: 'g' },
+      { name: 'Cereal', quantity: 50, unit: 'g' },
+    ]
+  }
+];
+
+// Generate mock stores
+export const generateMockStores = async (userId: string | null): Promise<any[]> => {
+  try {
+    // Check if stores already exist
+    const { data: existingStores, error } = await supabase
+      .from('stores')
+      .select('*')
+      .limit(1);
+    
+    if (error) {
+      console.error('Error checking for stores:', error);
+      throw error;
+    }
+    
+    if (existingStores && existingStores.length > 0) {
+      console.log('Mock stores already exist, skipping creation');
+      return existingStores;
+    }
+    
+    console.log('No stores found, generating mock stores...');
+    
+    // Insert the 10 mock stores
+    const mockStores = MOCK_STORES.map(store => ({
+      ...store,
+      user_id: userId
+    }));
+    
+    // Insert mock stores
+    const { data, error: insertError } = await supabase
+      .from('stores')
+      .insert(mockStores)
+      .select();
+    
+    if (insertError) {
+      console.error('Error creating mock stores:', insertError);
+      throw insertError;
+    }
+    
+    console.log('Successfully generated mock stores:', data?.length || 0);
+    return data || [];
+    
+  } catch (error) {
+    console.error('Error creating mock stores:', error);
+    return [];
+  }
+};
+
+// Generate mock products with distribution across stores
+export const generateMockProducts = async (userId: string | null): Promise<Product[] | null> => {
+  try {
+    // Check if any products already exist
+    const { data: existingProducts, error: checkError } = await supabase
+      .from('products')
+      .select('id')
+      .limit(1);
+    
+    if (checkError) {
+      console.error('Error checking existing products:', checkError);
+      return null;
+    }
+
+    // If products already exist, don't recreate them
+    if (existingProducts && existingProducts.length > 0) {
+      console.log('Mock products already exist, skipping creation');
+      // Return existing products
+      const { data: products } = await supabase.from('products').select('*');
+      return products;
+    }
+
+    // Get stores to associate products with
+    let { data: stores, error: storeError } = await supabase
+      .from('stores')
+      .select('id, name');
+
+    if (storeError || !stores || stores.length === 0) {
+      console.log('No stores found, generating stores first...');
+      stores = await generateMockStores(userId);
+      
+      if (!stores || stores.length === 0) {
+        console.error('Failed to create stores');
+        return null;
+      }
+    }
+      
+    console.log(`Found ${stores.length} stores to assign products to`);
+
+    // Create multiple products for each store with variations
+    const productsToInsert: any[] = [];
+    
+    // For each mock product, create variations in different stores
+    MOCK_PRODUCTS.forEach(mockProduct => {
+      // Determine how many stores will have this product (between 1 and 5)
+      const storeCount = Math.floor(Math.random() * 5) + 1;
+      
+      // Randomly select stores for this product
+      const selectedStoreIndices = new Set<number>();
+      while (selectedStoreIndices.size < Math.min(storeCount, stores.length)) {
+        selectedStoreIndices.add(Math.floor(Math.random() * stores.length));
+      }
+      
+      // Create product entries for each selected store
+      Array.from(selectedStoreIndices).forEach(storeIndex => {
+        const store = stores[storeIndex];
+        
+        // Vary the price slightly for each store (±15%)
+        const basePriceVariation = 0.85 + (Math.random() * 0.3); // between 85% and 115% of base price
+        const storePrice = Math.round((mockProduct.price * basePriceVariation) * 100) / 100;
+        
+        productsToInsert.push({
+          name: mockProduct.name,
+          description: `${mockProduct.name} from ${store.name}`,
+          price: storePrice,
+          category: mockProduct.category,
+          unit: mockProduct.unit,
+          user_id: null, // Make visible to all users
+          store_id: store.id,
+          image_url: `https://source.unsplash.com/random/300x200/?${encodeURIComponent(mockProduct.name.toLowerCase())}`
+        });
+      });
+    });
+
+    console.log(`Preparing to insert ${productsToInsert.length} product variants...`);
+
+    // Insert products in batches to avoid exceeding request limits
+    const BATCH_SIZE = 50;
+    const batches = [];
+    
+    for (let i = 0; i < productsToInsert.length; i += BATCH_SIZE) {
+      const batch = productsToInsert.slice(i, i + BATCH_SIZE);
+      batches.push(batch);
+    }
+    
+    let allInsertedProducts: any[] = [];
+    
+    for (const batch of batches) {
+      const { data, error } = await supabase
+        .from('products')
+        .insert(batch)
+        .select();
+      
+      if (error) {
+        console.error('Error inserting product batch:', error);
+      } else if (data) {
+        allInsertedProducts = [...allInsertedProducts, ...data];
+      }
+    }
+
+    console.log(`Successfully generated ${allInsertedProducts.length} products`);
+    return allInsertedProducts;
+  } catch (error) {
+    console.error('Error in generateMockProducts:', error);
+    return null;
+  }
+};
+
+// Generate mock recipes with linked products
+export const generateMockRecipes = async (): Promise<any[]> => {
+  try {
+    // Check if recipes already exist
+    const { data: existingRecipes, error: checkError } = await supabase
+      .from('recipes')
+      .select('id')
+      .limit(1);
+    
+    if (checkError) {
+      console.error('Error checking existing recipes:', checkError);
+      return MOCK_RECIPES.map((recipe, index) => ({
+        ...recipe,
+        id: `mock-${index + 1}`,
+        missingCount: recipe.ingredients.length
+      }));
+    }
+
+    if (existingRecipes && existingRecipes.length > 0) {
+      console.log('Recipes already exist, using mock data with availability check');
+      return MOCK_RECIPES.map((recipe, index) => ({
+        ...recipe,
+        id: existingRecipes[0]?.id || `mock-${index + 1}`,
+        missingCount: recipe.ingredients.length
+      }));
+    }
+    
+    // Insert recipes into database
+    const recipesToInsert = MOCK_RECIPES.map(recipe => ({
+      name: recipe.name,
+      description: recipe.description,
+      image_url: recipe.imageUrl,
+      preparation_time: recipe.preparationTime,
+      difficulty: recipe.difficulty,
+      category: recipe.category
+    }));
+    
+    const { data: insertedRecipes, error: insertError } = await supabase
+      .from('recipes')
+      .insert(recipesToInsert)
+      .select();
+    
+    if (insertError) {
+      console.error('Error inserting recipes:', insertError);
+      return MOCK_RECIPES.map((recipe, index) => ({
+        ...recipe,
+        id: `mock-${index + 1}`,
+        missingCount: recipe.ingredients.length
+      }));
+    }
+    
+    // Insert recipe ingredients with product links
+    if (insertedRecipes) {
+      // Get all products to match ingredients
+      const { data: allProducts } = await supabase
+        .from('products')
+        .select('id, name');
+        
+      if (allProducts && allProducts.length > 0) {
+        for (let i = 0; i < insertedRecipes.length; i++) {
+          const recipe = insertedRecipes[i];
+          const mockRecipe = MOCK_RECIPES[i];
+          
+          // For each ingredient, find matching product
+          for (const ingredient of mockRecipe.ingredients) {
+            // Find product that matches ingredient name (case insensitive partial match)
+            const matchingProduct = allProducts.find(product => 
+              product.name.toLowerCase().includes(ingredient.name.toLowerCase()) || 
+              ingredient.name.toLowerCase().includes(product.name.toLowerCase())
+            );
+            
+            if (matchingProduct) {
+              // Insert recipe ingredient with product link
+              await supabase.from('recipe_ingredients').insert({
+                recipe_id: recipe.id,
+                ingredient_name: ingredient.name,
+                quantity: ingredient.quantity,
+                unit: ingredient.unit,
+                product_id: matchingProduct.id
+              });
+            } else {
+              // Insert recipe ingredient without product link
+              await supabase.from('recipe_ingredients').insert({
+                recipe_id: recipe.id,
+                ingredient_name: ingredient.name,
+                quantity: ingredient.quantity,
+                unit: ingredient.unit
+              });
+            }
+          }
+        }
+      }
+      
+      // Return recipes with ingredient counts
+      const recipesWithCounts = insertedRecipes.map((recipe, index) => ({
+        ...recipe,
+        imageUrl: MOCK_RECIPES[index].imageUrl,
+        ingredients: MOCK_RECIPES[index].ingredients.map(ing => ({
+          ...ing,
+          available: false
+        })),
+        missingCount: MOCK_RECIPES[index].ingredients.length
+      }));
+      
+      return recipesWithCounts;
+    }
+    
+    // Fallback to mock data if database operations fail
+    return MOCK_RECIPES.map((recipe, index) => ({
+      ...recipe,
+      id: `mock-${index + 1}`,
+      missingCount: recipe.ingredients.length
+    }));
+  } catch (error) {
+    console.error('Error generating recipes:', error);
+    return MOCK_RECIPES.map((recipe, index) => ({
+      ...recipe,
+      id: `mock-${index + 1}`,
+      missingCount: recipe.ingredients.length
+    }));
+  }
 };
 
 // Update recipe availability based on user's ingredients
@@ -145,7 +527,9 @@ export const findProductsForIngredients = async (ingredientNames: string[]): Pro
           store:store_id (
             id,
             name,
-            address
+            address,
+            logo_url,
+            location
           )
         `)
         .ilike('name', `%${name}%`);
@@ -171,7 +555,9 @@ export const findProductsForIngredients = async (ingredientNames: string[]): Pro
                 store:store_id (
                   id,
                   name,
-                  address
+                  address,
+                  logo_url,
+                  location
                 )
               `)
               .ilike('name', `%${part}%`);
@@ -200,7 +586,9 @@ export const findProductsForIngredients = async (ingredientNames: string[]): Pro
               store:store_id (
                 id,
                 name,
-                address
+                address,
+                logo_url,
+                location
               )
             `)
             .eq('category', category);
@@ -250,350 +638,68 @@ const getCategoryForIngredient = (name: string): string | null => {
   return null;
 };
 
-// Generate mock stores
-export const generateMockStores = async (userId: string | null): Promise<void> => {
-  try {
-    // Check if stores already exist
-    const { data: existingStores, error } = await supabase
-      .from('stores')
-      .select('*')
-      .limit(1);
-    
-    if (error) {
-      console.error('Error checking for stores:', error);
-      throw error;
-    }
-    
-    if (existingStores && existingStores.length > 0) {
-      console.log('Mock stores already exist, skipping creation');
-      return;
-    }
-    
-    console.log('No stores found, generating mock stores...');
-    
-    const mockStores = [
-      {
-        name: 'Grocery Heaven',
-        address: '123 Main Street, Anytown, USA',
-        user_id: userId
-      },
-      {
-        name: 'Fresh Market',
-        address: '456 Oak Avenue, Springfield, USA',
-        user_id: userId
-      },
-      {
-        name: 'Value Mart',
-        address: '789 Pine Road, Westville, USA',
-        user_id: userId
-      }
-    ];
-    
-    // Insert mock stores
-    const { error: insertError } = await supabase
-      .from('stores')
-      .insert(mockStores);
-    
-    if (insertError) {
-      console.error('Error creating mock stores:', insertError);
-      throw insertError;
-    }
-    
-    console.log('Successfully generated mock stores');
-    
-  } catch (error) {
-    console.error('Error creating mock stores:', error);
-    // Don't rethrow the error, just log it
+// Helper function to determine category based on item name
+export const getCategoryForItem = (name: string): string => {
+  name = name.toLowerCase();
+  
+  if (name.includes('milk') || name.includes('yogurt') || name.includes('cheese') || name.includes('butter')) {
+    return 'Dairy';
+  } else if (name.includes('bread') || name.includes('bun') || name.includes('cake') || name.includes('pastry')) {
+    return 'Bakery';
+  } else if (name.includes('apple') || name.includes('banana') || name.includes('orange') || 
+            name.includes('berry') || name.includes('fruit')) {
+    return 'Fruits';
+  } else if (name.includes('tomato') || name.includes('potato') || name.includes('onion') ||
+            name.includes('carrot') || name.includes('lettuce') || name.includes('vegetable')) {
+    return 'Vegetables';
+  } else if (name.includes('beef') || name.includes('chicken') || name.includes('pork') ||
+            name.includes('steak') || name.includes('fish') || name.includes('meat')) {
+    return 'Meat';
+  } else if (name.includes('rice') || name.includes('pasta') || name.includes('flour') ||
+            name.includes('cereal') || name.includes('grain')) {
+    return 'Grains';
+  } else if (name.includes('sugar') || name.includes('salt') || name.includes('pepper') ||
+            name.includes('spice') || name.includes('herb')) {
+    return 'Spices';
+  } else if (name.includes('oil') || name.includes('vinegar') || name.includes('sauce') ||
+            name.includes('ketchup') || name.includes('mayonnaise') || name.includes('dressing')) {
+    return 'Condiments';
+  } else if (name.includes('juice') || name.includes('soda') || name.includes('water') ||
+            name.includes('tea') || name.includes('coffee') || name.includes('drink')) {
+    return 'Beverages';
+  } else if (name.includes('cookie') || name.includes('chocolate') || name.includes('candy') ||
+            name.includes('sweet') || name.includes('snack') || name.includes('chips')) {
+    return 'Snacks';
+  } else {
+    return 'Other';
   }
 };
 
-// Generate mock products with ALL ingredients from recipes
-export const generateMockProducts = async (userId: string | null): Promise<Product[] | void> => {
-  try {
-    // Check if any products already exist
-    const { data: existingProducts, error: checkError } = await supabase
-      .from('products')
-      .select('id')
-      .limit(1);
-    
-    if (checkError) {
-      console.error('Error checking existing products:', checkError);
-      return;
-    }
-
-    // If products already exist, don't recreate them
-    if (existingProducts && existingProducts.length > 0) {
-      console.log('Mock products already exist, skipping creation');
-      return;
-    }
-
-    // Get stores to associate products with
-    const { data: stores, error: storeError } = await supabase
-      .from('stores')
-      .select('id');
-
-    if (storeError || !stores || stores.length === 0) {
-      await generateMockStores(userId);
-    }
-
-    // Fetch stores again if we had to create them
-    const { data: allStores } = await supabase
-      .from('stores')
-      .select('id');
-      
-    if (!allStores || allStores.length === 0) {
-      console.error('Still no stores found after creation attempt');
-      return;
-    }
-
-    // Extract all unique ingredients from recipes
-    const recipes = generateMockRecipes();
-    const allIngredientNames = new Set();
-    recipes.forEach(recipe => {
-      recipe.ingredients.forEach(ingredient => {
-        allIngredientNames.add(ingredient.name);
-      });
-    });
-    
-    console.log('Creating products for these ingredients:', Array.from(allIngredientNames));
-
-    // Create products for each ingredient
-    const products = [];
-    
-    // Helper function to distribute products across stores
-    const getRandomStoreId = () => {
-      const randomIndex = Math.floor(Math.random() * allStores.length);
-      return allStores[randomIndex].id;
-    };
-
-    // Create specific products for each recipe ingredient
-    // Spaghetti Bolognese ingredients
-    products.push(
-      {
-        name: 'Ground Beef',
-        description: 'Premium ground beef, perfect for pasta dishes',
-        price: 5.99,
-        category: 'Meat',
-        image_url: 'https://images.unsplash.com/photo-1588168333986-5078d3ae3976?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: getRandomStoreId()
-      },
-      {
-        name: 'Yellow Onions',
-        description: 'Fresh yellow onions, perfect for cooking',
-        price: 1.49,
-        category: 'Vegetables',
-        image_url: 'https://images.unsplash.com/photo-1518977956812-cd3dbadaaf31?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: getRandomStoreId()
-      },
-      {
-        name: 'Garlic',
-        description: 'Fresh garlic bulbs',
-        price: 0.99,
-        category: 'Vegetables',
-        image_url: 'https://images.unsplash.com/photo-1615477550927-1cd5c024ebde?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: getRandomStoreId()
-      },
-      {
-        name: 'Canned Tomatoes',
-        description: 'Organic whole peeled tomatoes',
-        price: 2.29,
-        category: 'Canned Goods',
-        image_url: 'https://images.unsplash.com/photo-1599983252945-c31c7b9a11b5?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: getRandomStoreId()
-      },
-      {
-        name: 'Spaghetti',
-        description: 'Premium Italian spaghetti pasta',
-        price: 1.99,
-        category: 'Pasta',
-        image_url: 'https://images.unsplash.com/photo-1627634777217-c864268db30f?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: getRandomStoreId()
-      },
-      {
-        name: 'Tomato Paste',
-        description: 'Concentrated tomato paste, perfect for sauces',
-        price: 1.29,
-        category: 'Canned Goods',
-        image_url: 'https://images.unsplash.com/photo-1505252585461-04db1eb84625?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: getRandomStoreId()
-      },
-      // Chicken Caesar Salad ingredients
-      {
-        name: 'Chicken Breast',
-        description: 'Boneless skinless chicken breast, perfect for salads',
-        price: 4.99,
-        category: 'Meat',
-        image_url: 'https://images.unsplash.com/photo-1604503468506-a8da13d82791?auto=format&fit=crop&q=80&w=2274&ixlib=rb-4.0.3',
-        store_id: getRandomStoreId()
-      },
-      {
-        name: 'Romaine Lettuce',
-        description: 'Fresh crisp romaine lettuce',
-        price: 2.49,
-        category: 'Vegetables',
-        image_url: 'https://images.unsplash.com/photo-1622205313162-be1d5712a43f?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: getRandomStoreId()
-      },
-      {
-        name: 'Parmesan Cheese',
-        description: 'Aged Parmesan cheese, grated',
-        price: 3.99,
-        category: 'Dairy',
-        image_url: 'https://images.unsplash.com/photo-1552767059-ce182ead6c1b?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: getRandomStoreId()
-      },
-      {
-        name: 'Croutons',
-        description: 'Seasoned garlic croutons for salads',
-        price: 1.99,
-        category: 'Bakery',
-        image_url: 'https://images.unsplash.com/photo-1519915028121-7d3463d5b1ff?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: getRandomStoreId()
-      },
-      {
-        name: 'Caesar Dressing',
-        description: 'Creamy Caesar salad dressing',
-        price: 2.99,
-        category: 'Condiments',
-        image_url: 'https://images.unsplash.com/photo-1472476443507-c7a5948772fc?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: getRandomStoreId()
-      },
-      // Vegetarian Stir Fry ingredients
-      {
-        name: 'Tofu',
-        description: 'Firm tofu for stir frying',
-        price: 2.49,
-        category: 'Vegetarian',
-        image_url: 'https://images.unsplash.com/photo-1546069901-d5bfd2cbfb1f?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: getRandomStoreId()
-      },
-      {
-        name: 'Bell Peppers',
-        description: 'Mixed bell peppers, red, yellow and green',
-        price: 3.49,
-        category: 'Vegetables',
-        image_url: 'https://images.unsplash.com/photo-1563565375-f3fdfdbefa83?auto=format&fit=crop&q=80&w=2274&ixlib=rb-4.0.3',
-        store_id: getRandomStoreId()
-      },
-      {
-        name: 'Broccoli',
-        description: 'Fresh broccoli crowns',
-        price: 1.99,
-        category: 'Vegetables',
-        image_url: 'https://images.unsplash.com/photo-1614336215203-05a588f74627?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: getRandomStoreId()
-      },
-      {
-        name: 'Carrots',
-        description: 'Fresh organic carrots',
-        price: 1.29,
-        category: 'Vegetables',
-        image_url: 'https://images.unsplash.com/photo-1590868309235-ea34bed7bd7f?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: getRandomStoreId()
-      },
-      {
-        name: 'Soy Sauce',
-        description: 'Traditional soy sauce, perfect for stir fry',
-        price: 2.99,
-        category: 'Condiments',
-        image_url: 'https://images.unsplash.com/photo-1550304943-4f24f54ddde9?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: getRandomStoreId()
-      },
-      // Margherita Pizza ingredients
-      {
-        name: 'Pizza Dough',
-        description: 'Ready-to-use pizza dough',
-        price: 3.49,
-        category: 'Bakery',
-        image_url: 'https://images.unsplash.com/photo-1622121341458-ee051ee9f9a6?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: getRandomStoreId()
-      },
-      {
-        name: 'Fresh Mozzarella',
-        description: 'Italian fresh mozzarella cheese',
-        price: 4.99,
-        category: 'Dairy',
-        image_url: 'https://images.unsplash.com/photo-1611565877126-c2952e6e2e33?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: getRandomStoreId()
-      },
-      {
-        name: 'Tomatoes',
-        description: 'Ripe Roma tomatoes',
-        price: 2.99,
-        category: 'Vegetables',
-        image_url: 'https://images.unsplash.com/photo-1518977822534-7049a61ee0c2?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: getRandomStoreId()
-      },
-      {
-        name: 'Fresh Basil',
-        description: 'Organic fresh basil',
-        price: 1.99,
-        category: 'Produce',
-        image_url: 'https://images.unsplash.com/photo-1600435335786-d74d2bb6de37?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: getRandomStoreId()
-      },
-      {
-        name: 'Olive Oil',
-        description: 'Extra virgin olive oil',
-        price: 7.99,
-        category: 'Oils',
-        image_url: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?auto=format&fit=crop&q=80&w=2336&ixlib=rb-4.0.3',
-        store_id: getRandomStoreId()
-      }
-    );
-
-    // Add some basic staples
-    products.push(
-      {
-        name: 'Organic Apples',
-        description: 'Fresh organic apples, locally grown',
-        price: 3.99,
-        category: 'Fruits',
-        image_url: 'https://images.unsplash.com/photo-1619546813926-a78fa6372cd2?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: getRandomStoreId()
-      },
-      {
-        name: 'Whole Milk',
-        description: 'Fresh whole milk from local farms',
-        price: 2.49,
-        category: 'Dairy',
-        image_url: 'https://images.unsplash.com/photo-1563636619-e9143da7973b?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: getRandomStoreId()
-      },
-      {
-        name: 'Organic Spinach',
-        description: 'Fresh organic spinach',
-        price: 2.99,
-        category: 'Vegetables',
-        image_url: 'https://images.unsplash.com/photo-1576045057995-568f588f82fe?auto=format&fit=crop&q=80&w=2340&ixlib=rb-4.0.3',
-        store_id: getRandomStoreId()
-      }
-    );
-
-    // Insert mock products without user_id to make them visible to all users
-    const { data, error } = await supabase.from('products').insert(
-      products.map(product => ({
-        ...product,
-        user_id: null // Make visible to all users
-      }))
-    ).select();
-    
-    if (error) {
-      console.error('Error creating mock products:', error);
-      return;
-    }
-
-    console.log(`Mock products created successfully: ${products.length} products`);
-    return data;
-  } catch (error) {
-    console.error('Error in generateMockProducts:', error);
-  }
+// Initialize data for a new user or application
+export const initializeAppData = async (userId: string | null = null): Promise<void> => {
+  console.log('Initializing app data...');
+  
+  // Generate stores if they don't exist
+  const stores = await generateMockStores(userId);
+  console.log(`Generated ${stores.length} stores`);
+  
+  // Generate products if they don't exist
+  const products = await generateMockProducts(userId);
+  console.log(`Generated ${products?.length || 0} products`);
+  
+  // Generate recipes if they don't exist
+  const recipes = await generateMockRecipes();
+  console.log(`Generated ${recipes.length} recipes`);
+  
+  console.log('App data initialization complete');
 };
 
-// Generate mock ingredients
+// Generate mock ingredients for a user
 export const generateMockIngredients = async (userId: string | null): Promise<void> => {
   try {
     // Check if the user already has ingredients
+    if (!userId) return;
+    
     const { data: existingIngredients } = await supabase
       .from('ingredients')
       .select('id')
@@ -602,52 +708,39 @@ export const generateMockIngredients = async (userId: string | null): Promise<vo
 
     // If ingredients already exist, don't recreate them
     if (existingIngredients && existingIngredients.length > 0) {
-      console.log('Mock ingredients already exist, skipping creation');
+      console.log('User already has ingredients, skipping creation');
       return;
     }
 
-    const ingredients = [
-      {
-        name: 'Eggs',
-        quantity: 12,
-        unit: 'unit',
-        expiry_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(), // 14 days from now
-        category: 'Dairy',
-        user_id: userId
-      },
-      {
-        name: 'Milk',
-        quantity: 1,
-        unit: 'gallon',
-        expiry_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
-        category: 'Dairy',
-        user_id: userId
-      },
-      {
-        name: 'Bread',
-        quantity: 1,
-        unit: 'loaf',
-        expiry_date: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(), // 5 days from now
-        category: 'Bakery',
-        user_id: userId
-      },
-      {
-        name: 'Apples',
-        quantity: 6,
-        unit: 'unit',
-        expiry_date: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString(), // 10 days from now
-        category: 'Fruits',
-        user_id: userId
-      },
-      {
-        name: 'Chicken breast',
-        quantity: 2,
-        unit: 'lb',
-        expiry_date: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(), // 3 days from now
-        category: 'Meat',
-        user_id: userId
-      }
-    ];
+    // Get some random products to use as ingredients
+    const { data: products } = await supabase
+      .from('products')
+      .select('*')
+      .limit(10);
+    
+    if (!products || products.length === 0) {
+      console.log('No products found, generating some first');
+      await generateMockProducts(null);
+      return;
+    }
+
+    // Create ingredients from products
+    const ingredients = products.slice(0, 5).map(product => {
+      // Set expiry date to 7-14 days in the future
+      const daysToAdd = Math.floor(Math.random() * 7) + 7;
+      const expiryDate = new Date();
+      expiryDate.setDate(expiryDate.getDate() + daysToAdd);
+      
+      return {
+        name: product.name,
+        quantity: Math.floor(Math.random() * 5) + 1,
+        unit: product.unit || 'unit',
+        category: product.category || getCategoryForItem(product.name),
+        expiry_date: expiryDate.toISOString(),
+        user_id: userId,
+        product_id: product.id
+      };
+    });
 
     // Insert mock ingredients
     const { error } = await supabase.from('ingredients').insert(ingredients);

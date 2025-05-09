@@ -1,402 +1,30 @@
+
 import React, { useState, useEffect } from 'react';
-import { 
-  fetchCartItems, 
-  addToCart as addToCartHelper, 
-  removeFromCart, 
-  updateCartItemQuantity,
-  fetchProductDetails,
-  addIngredientsFromCart
-} from '@/lib/supabaseHelpers';
-import { useAuth } from './AuthComponents';
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { 
-  ShoppingCart, 
-  Trash2, 
-  Plus, 
-  Minus,
-  Store,
-  Check
-} from 'lucide-react';
+import { useAuth } from './AuthComponents';
+import { addToCart, removeFromCart, updateCartItemQuantity, fetchCartItems } from '@/lib/supabaseHelpers';
+import { PlusCircle, MinusCircle, Trash2, ShoppingCart, Store } from 'lucide-react';
 import { toast } from 'sonner';
-import { Skeleton } from "@/components/ui/skeleton";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { useNavigate } from 'react-router-dom';
 
-interface CartItem {
-  id: string;
-  product_id: string;
-  quantity: number;
-  product: {
-    id: string;
-    name: string;
-    price: number;
-    description?: string;
-    image_url?: string;
-    category?: string;
-    store_id?: string;
-    store?: {
-      id: string;
-      name: string;
-    };
-  };
-}
-
-interface StoreGroup {
-  storeName: string;
-  storeId: string | null;
-  items: CartItem[];
-  subtotal: number;
-}
-
-interface CartDisplayProps {
-  onOrderPlaced?: () => void;
-  onConfirmPurchase?: () => void;
-}
-
-export const CartDisplay: React.FC<CartDisplayProps> = ({ 
-  onOrderPlaced,
-  onConfirmPurchase
-}) => {
+export const AddToCartButton = ({ productId, variant = 'default', size = 'default' }) => {
   const { getUser } = useAuth();
   const user = getUser();
-  const navigate = useNavigate();
-  
-  const [cartItems, setCartItems] = useState<CartItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [placingOrder, setPlacingOrder] = useState(false);
-  
-  const fetchCart = async () => {
-    if (!user) return;
-    
-    setLoading(true);
-    try {
-      const items = await fetchCartItems(user.id);
-      
-      // Fetch product details for each cart item
-      const itemsWithProductDetails = await Promise.all(
-        items.map(async (item) => {
-          try {
-            const product = await fetchProductDetails(item.product_id);
-            return {
-              ...item,
-              product: product || { 
-                id: item.product_id,
-                name: 'Unknown Product',
-                price: 0
-              }
-            } as CartItem;
-          } catch (err) {
-            console.error(`Error fetching product ${item.product_id}:`, err);
-            return {
-              ...item,
-              product: { 
-                id: item.product_id,
-                name: 'Unknown Product',
-                price: 0
-              }
-            } as CartItem;
-          }
-        })
-      );
-      
-      setCartItems(itemsWithProductDetails);
-    } catch (error) {
-      console.error('Error fetching cart:', error);
-      toast.error('Failed to load your cart');
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  useEffect(() => {
-    fetchCart();
-  }, [user]);
-  
-  const handleRemoveFromCart = async (cartItemId: string) => {
-    if (!user) return;
-    
-    try {
-      await removeFromCart(cartItemId);
-      setCartItems(cartItems.filter(item => item.id !== cartItemId));
-      toast.success('Item removed from cart');
-    } catch (error) {
-      console.error('Error removing item from cart:', error);
-      toast.error('Failed to remove item');
-    }
-  };
-  
-  const handleUpdateQuantity = async (cartItemId: string, newQuantity: number) => {
-    if (!user || newQuantity < 1) return;
-    
-    try {
-      await updateCartItemQuantity(cartItemId, newQuantity);
-      setCartItems(cartItems.map(item => 
-        item.id === cartItemId ? { ...item, quantity: newQuantity } : item
-      ));
-    } catch (error) {
-      console.error('Error updating quantity:', error);
-      toast.error('Failed to update quantity');
-    }
-  };
-  
-  const handlePlaceOrder = async () => {
-    if (!user || cartItems.length === 0) return;
-    
-    setPlacingOrder(true);
-    try {
-      await addIngredientsFromCart(user.id);
-      toast.success('Order placed successfully!');
-      setCartItems([]);
-      
-      if (onOrderPlaced) {
-        onOrderPlaced();
-      }
-    } catch (error) {
-      console.error('Error placing order:', error);
-      toast.error('Failed to place order');
-    } finally {
-      setPlacingOrder(false);
-    }
-  };
-
-  const handleConfirmPurchase = () => {
-    if (!cartItems.length) {
-      toast.error('Your cart is empty');
-      return;
-    }
-    
-    if (onConfirmPurchase) {
-      onConfirmPurchase();
-    }
-  };
-  
-  const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
-  const subtotal = cartItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
-
-  // Group cart items by store for display
-  const groupItemsByStore = (): StoreGroup[] => {
-    const storeGroups: Record<string, StoreGroup> = {};
-    
-    cartItems.forEach(item => {
-      const storeId = item.product.store_id || 'no-store';
-      const storeName = item.product.store?.name || 'General Store';
-      
-      if (!storeGroups[storeId]) {
-        storeGroups[storeId] = {
-          storeId: storeId === 'no-store' ? null : storeId,
-          storeName,
-          items: [],
-          subtotal: 0
-        };
-      }
-      
-      storeGroups[storeId].items.push(item);
-      storeGroups[storeId].subtotal += item.product.price * item.quantity;
-    });
-    
-    return Object.values(storeGroups);
-  };
-  
-  const storeGroups = groupItemsByStore();
-  
-  if (!user) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center">
-            <ShoppingCart className="mr-2 h-5 w-5" />
-            Shopping Cart
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="text-center py-8">
-            <p className="text-gray-500">Please log in to view your cart.</p>
-            <Button 
-              className="mt-4"
-              onClick={() => navigate('/login')}
-            >
-              Log In
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-  
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center">
-          <ShoppingCart className="mr-2 h-5 w-5" />
-          Shopping Cart {totalItems > 0 && `(${totalItems} items)`}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        {loading ? (
-          <div className="space-y-4">
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-12 w-full" />
-            <Skeleton className="h-12 w-full" />
-          </div>
-        ) : cartItems.length === 0 ? (
-          <div className="text-center py-8">
-            <p className="text-gray-500">Your cart is empty.</p>
-            <Button 
-              className="mt-4"
-              onClick={() => navigate('/products?from=my-orders')}
-            >
-              Browse Products
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-8">
-            {/* Show items grouped by store */}
-            {storeGroups.map((storeGroup, index) => (
-              <div key={index} className="mb-6">
-                <div className="flex items-center mb-2">
-                  <Store className="h-4 w-4 mr-2 text-gray-600" />
-                  <h3 className="font-medium">{storeGroup.storeName}</h3>
-                </div>
-
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Product</TableHead>
-                      <TableHead>Price</TableHead>
-                      <TableHead>Quantity</TableHead>
-                      <TableHead className="text-right">Total</TableHead>
-                      <TableHead></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {storeGroup.items.map(item => (
-                      <TableRow key={item.id}>
-                        <TableCell>
-                          <div>
-                            <div className="font-medium">{item.product.name}</div>
-                            {item.product.category && (
-                              <div className="text-xs text-gray-500">
-                                {item.product.category}
-                              </div>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell>${item.product.price.toFixed(2)}</TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            <Button 
-                              variant="outline" 
-                              size="icon" 
-                              className="h-7 w-7"
-                              onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
-                              disabled={item.quantity <= 1}
-                            >
-                              <Minus className="h-3 w-3" />
-                            </Button>
-                            <span className="w-5 text-center">{item.quantity}</span>
-                            <Button 
-                              variant="outline" 
-                              size="icon" 
-                              className="h-7 w-7"
-                              onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
-                            >
-                              <Plus className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-right">
-                          ${(item.product.price * item.quantity).toFixed(2)}
-                        </TableCell>
-                        <TableCell>
-                          <Button 
-                            variant="ghost" 
-                            size="icon"
-                            onClick={() => handleRemoveFromCart(item.id)}
-                          >
-                            <Trash2 className="h-4 w-4 text-gray-500" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                    <TableRow>
-                      <TableCell colSpan={3} className="text-right font-medium">
-                        Subtotal:
-                      </TableCell>
-                      <TableCell className="text-right font-medium">
-                        ${storeGroup.subtotal.toFixed(2)}
-                      </TableCell>
-                      <TableCell></TableCell>
-                    </TableRow>
-                  </TableBody>
-                </Table>
-              </div>
-            ))}
-
-            <div className="pt-4 border-t border-gray-200">
-              <div className="flex justify-between mb-4">
-                <span className="font-bold">Order Total:</span>
-                <span className="font-bold">${subtotal.toFixed(2)}</span>
-              </div>
-              
-              <div className="flex flex-col sm:flex-row gap-2 justify-end">
-                <Button
-                  variant="outline"
-                  onClick={() => navigate('/products?from=my-orders')}
-                >
-                  Add More Items
-                </Button>
-                <Button
-                  className="bg-fridge-blue hover:bg-blue-700"
-                  disabled={placingOrder || cartItems.length === 0}
-                  onClick={handleConfirmPurchase}
-                >
-                  <Check className="h-4 w-4 mr-2" />
-                  Confirm Purchase
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  );
-};
-
-export const CartIcon = () => {
-  return <ShoppingCart className="w-5 h-5" />;
-};
-
-interface AddToCartButtonProps {
-  productId: string;
-  quantity?: number;
-  className?: string;
-  showIcon?: boolean;
-}
-
-export const AddToCartButton: React.FC<AddToCartButtonProps> = ({
-  productId,
-  quantity = 1,
-  className = '',
-  showIcon = true
-}) => {
-  const { getUser } = useAuth();
-  const user = getUser();
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  
+  const navigate = useNavigate();
+
   const handleAddToCart = async () => {
     if (!user) {
-      toast.error('Please log in to add items to cart');
+      toast.error('Please log in to add items to your cart');
       navigate('/login');
       return;
     }
-    
+
     setLoading(true);
     try {
-      await addToCartHelper(user.id, productId, quantity);
+      await addToCart(user.id, productId);
       toast.success('Added to cart');
     } catch (error) {
       console.error('Error adding to cart:', error);
@@ -405,15 +33,268 @@ export const AddToCartButton: React.FC<AddToCartButtonProps> = ({
       setLoading(false);
     }
   };
-  
+
   return (
     <Button 
       onClick={handleAddToCart} 
       disabled={loading}
-      className={className || "bg-fridge-blue hover:bg-blue-700"}
+      variant={variant}
+      size={size}
     >
-      {showIcon && <ShoppingCart className="h-4 w-4 mr-2" />}
+      <ShoppingCart className="h-4 w-4 mr-2" />
       {loading ? 'Adding...' : 'Add to Cart'}
     </Button>
+  );
+};
+
+export const CartDisplay = ({ onOrderPlaced, onConfirmPurchase }) => {
+  const { getUser } = useAuth();
+  const user = getUser();
+  const [cartItems, setCartItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (user) {
+      loadCart();
+    } else {
+      setCartItems([]);
+      setLoading(false);
+    }
+  }, [user]);
+
+  const loadCart = async () => {
+    if (!user) return;
+    
+    setLoading(true);
+    try {
+      const items = await fetchCartItems(user.id);
+      setCartItems(items || []);
+    } catch (error) {
+      console.error('Error loading cart:', error);
+      toast.error('Failed to load cart items');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateQuantity = async (itemId, quantity) => {
+    if (quantity < 1) return;
+    
+    try {
+      await updateCartItemQuantity(itemId, quantity);
+      loadCart(); // Reload cart after update
+    } catch (error) {
+      console.error('Error updating quantity:', error);
+      toast.error('Failed to update quantity');
+    }
+  };
+
+  const handleRemoveItem = async (itemId) => {
+    try {
+      await removeFromCart(itemId);
+      toast.success('Item removed from cart');
+      loadCart(); // Reload cart after removal
+    } catch (error) {
+      console.error('Error removing item:', error);
+      toast.error('Failed to remove item');
+    }
+  };
+
+  const calculateTotal = () => {
+    return cartItems.reduce((total, item) => {
+      const price = item.products?.price || 0;
+      return total + (price * item.quantity);
+    }, 0);
+  };
+
+  // Group cart items by store
+  const groupItemsByStore = () => {
+    const groups = {};
+    
+    cartItems.forEach(item => {
+      const storeId = item.products?.store_id || 'no-store';
+      const storeName = item.products?.store?.name || 'General Store';
+      
+      if (!groups[storeId]) {
+        groups[storeId] = {
+          storeName,
+          storeId: storeId === 'no-store' ? null : storeId,
+          items: [],
+          subtotal: 0
+        };
+      }
+      
+      groups[storeId].items.push(item);
+      groups[storeId].subtotal += (item.products?.price || 0) * item.quantity;
+    });
+    
+    return Object.values(groups);
+  };
+
+  if (!user) {
+    return (
+      <div className="text-center py-12">
+        <ShoppingCart className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+        <h3 className="text-lg font-medium text-gray-900">Your cart is empty</h3>
+        <p className="mt-1 text-sm text-gray-500">
+          Please log in to view your cart
+        </p>
+        <Button onClick={() => navigate('/login')} className="mt-6">
+          Log In
+        </Button>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="text-center py-12">
+        <p>Loading your cart...</p>
+      </div>
+    );
+  }
+
+  if (cartItems.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <ShoppingCart className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+        <h3 className="text-lg font-medium text-gray-900">Your cart is empty</h3>
+        <p className="mt-1 text-sm text-gray-500">
+          Add items to your cart to see them here
+        </p>
+        <Button onClick={() => navigate('/products')} className="mt-6">
+          Browse Products
+        </Button>
+      </div>
+    );
+  }
+
+  const storeGroups = groupItemsByStore();
+  const total = calculateTotal();
+
+  return (
+    <div>
+      <h2 className="text-xl font-semibold mb-4">Your Cart</h2>
+      
+      <div className="space-y-6">
+        {storeGroups.map((group, index) => (
+          <Card key={index}>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center">
+                <Store className="h-5 w-5 mr-2 text-gray-500" />
+                {group.storeName}
+              </CardTitle>
+            </CardHeader>
+            
+            <CardContent>
+              {group.items.map(item => (
+                <div 
+                  key={item.id}
+                  className="flex items-center justify-between py-3 border-b last:border-0"
+                >
+                  <div className="flex items-center">
+                    {item.products?.image_url && (
+                      <img 
+                        src={item.products.image_url}
+                        alt={item.products.name}
+                        className="w-12 h-12 object-cover rounded mr-3"
+                      />
+                    )}
+                    <div>
+                      <div className="font-medium">{item.products?.name}</div>
+                      <div className="text-sm text-gray-500">
+                        ${item.products?.price?.toFixed(2)} per {item.products?.unit || 'unit'}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center">
+                    <div className="mr-4 text-right">
+                      <div className="font-medium">
+                        ${((item.products?.price || 0) * item.quantity).toFixed(2)}
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center border rounded">
+                      <Button 
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
+                        disabled={item.quantity <= 1}
+                      >
+                        <MinusCircle className="h-4 w-4" />
+                      </Button>
+                      
+                      <Input
+                        type="number"
+                        value={item.quantity}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value);
+                          if (!isNaN(val) && val >= 1) {
+                            handleUpdateQuantity(item.id, val);
+                          }
+                        }}
+                        className="w-12 h-8 text-center border-0 p-0"
+                        min="1"
+                      />
+                      
+                      <Button 
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
+                      >
+                        <PlusCircle className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    
+                    <Button 
+                      variant="ghost"
+                      size="icon"
+                      className="ml-2"
+                      onClick={() => handleRemoveItem(item.id)}
+                    >
+                      <Trash2 className="h-4 w-4 text-red-500" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+              
+              <div className="mt-4 text-right">
+                <div className="text-gray-600">Subtotal: ${group.subtotal.toFixed(2)}</div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      
+      <Card className="mt-6">
+        <CardContent className="pt-6">
+          <div className="flex justify-between items-center text-lg font-bold">
+            <div>Order Total:</div>
+            <div>${total.toFixed(2)}</div>
+          </div>
+        </CardContent>
+        
+        <CardFooter className="flex justify-end space-x-4 pt-0">
+          <Button 
+            variant="outline"
+            onClick={() => navigate('/products')}
+          >
+            Continue Shopping
+          </Button>
+          
+          <Button 
+            onClick={onConfirmPurchase} 
+            className="bg-fridge-blue hover:bg-blue-700"
+          >
+            <ShoppingCart className="h-4 w-4 mr-2" />
+            Complete Purchase
+          </Button>
+        </CardFooter>
+      </Card>
+    </div>
   );
 };

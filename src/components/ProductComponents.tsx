@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,6 +28,8 @@ export interface Product {
     id: string;
     name: string;
     address?: string;
+    logo_url?: string;
+    location?: string;
   };
   unit?: string;
 }
@@ -81,18 +82,23 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </div>
         )}
         
-        <CardHeader>
+        <CardHeader className="pb-2">
           <div className="flex justify-between items-start">
             <CardTitle className="text-xl">{product.name}</CardTitle>
             <div className="text-lg font-bold">${product.price.toFixed(2)}</div>
           </div>
+          {product.unit && (
+            <div className="text-sm text-gray-500">
+              Per {product.unit}
+            </div>
+          )}
           {product.category && (
             <div className="text-sm text-gray-500">
               {product.category}
             </div>
           )}
           {product.store && (
-            <Badge variant="outline" className="flex items-center gap-1">
+            <Badge variant="outline" className="flex items-center gap-1 mt-1">
               <Store className="h-3 w-3" />
               {product.store.name}
             </Badge>
@@ -157,9 +163,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{product.name}</DialogTitle>
-              {product.category && (
-                <DialogDescription>{product.category}</DialogDescription>
-              )}
+              <DialogDescription>
+                {product.category && <span>{product.category}</span>}
+                {product.unit && <span> · {product.unit}</span>}
+              </DialogDescription>
             </DialogHeader>
             
             <div className="space-y-4">
@@ -189,10 +196,18 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 <div>
                   <div className="font-medium mb-1">Available at:</div>
                   <div className="flex items-center gap-2">
-                    <Store className="h-4 w-4 text-gray-500" />
+                    {product.store.logo_url && (
+                      <img 
+                        src={product.store.logo_url} 
+                        alt={product.store.name} 
+                        className="h-8 w-8 rounded-full bg-gray-100"
+                      />
+                    )}
                     <div>
-                      <div>{product.store.name}</div>
-                      <div className="text-sm text-gray-500">{product.store.address}</div>
+                      <div className="font-medium">{product.store.name}</div>
+                      {product.store.location && (
+                        <div className="text-sm text-gray-500">{product.store.location}</div>
+                      )}
                     </div>
                   </div>
                 </div>

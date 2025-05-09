@@ -48,6 +48,7 @@ export type Database = {
           expiry_date: string
           id: string
           name: string
+          product_id: string | null
           quantity: number
           unit: string
           user_id: string | null
@@ -58,6 +59,7 @@ export type Database = {
           expiry_date: string
           id?: string
           name: string
+          product_id?: string | null
           quantity: number
           unit: string
           user_id?: string | null
@@ -68,11 +70,20 @@ export type Database = {
           expiry_date?: string
           id?: string
           name?: string
+          product_id?: string | null
           quantity?: number
           unit?: string
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "ingredients_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       meal_plan_ingredients: {
         Row: {
@@ -252,6 +263,7 @@ export type Database = {
           name: string
           price: number
           store_id: string | null
+          unit: string
           user_id: string | null
         }
         Insert: {
@@ -263,6 +275,7 @@ export type Database = {
           name: string
           price: number
           store_id?: string | null
+          unit?: string
           user_id?: string | null
         }
         Update: {
@@ -274,6 +287,7 @@ export type Database = {
           name?: string
           price?: number
           store_id?: string | null
+          unit?: string
           user_id?: string | null
         }
         Relationships: [
@@ -364,6 +378,7 @@ export type Database = {
           created_at: string | null
           id: string
           ingredient_name: string
+          product_id: string | null
           quantity: number | null
           recipe_id: string | null
           unit: string | null
@@ -372,6 +387,7 @@ export type Database = {
           created_at?: string | null
           id?: string
           ingredient_name: string
+          product_id?: string | null
           quantity?: number | null
           recipe_id?: string | null
           unit?: string | null
@@ -380,11 +396,19 @@ export type Database = {
           created_at?: string | null
           id?: string
           ingredient_name?: string
+          product_id?: string | null
           quantity?: number | null
           recipe_id?: string | null
           unit?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "recipe_ingredients_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "recipe_ingredients_recipe_id_fkey"
             columns: ["recipe_id"]
@@ -501,6 +525,8 @@ export type Database = {
           address: string
           created_at: string | null
           id: string
+          location: string | null
+          logo_url: string | null
           name: string
           user_id: string | null
         }
@@ -508,6 +534,8 @@ export type Database = {
           address: string
           created_at?: string | null
           id?: string
+          location?: string | null
+          logo_url?: string | null
           name: string
           user_id?: string | null
         }
@@ -515,6 +543,8 @@ export type Database = {
           address?: string
           created_at?: string | null
           id?: string
+          location?: string | null
+          logo_url?: string | null
           name?: string
           user_id?: string | null
         }

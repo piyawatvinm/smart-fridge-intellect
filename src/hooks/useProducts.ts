@@ -3,13 +3,15 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchStores } from '@/lib/supabaseHelpers';
 import { toast } from 'sonner';
-import { generateMockProducts, generateMockStores } from '@/utils/seedData';
+import { generateMockProducts, generateMockStores, initializeAppData } from '@/utils/seedData';
 import { Product } from '@/components/ProductComponents';
 
 interface Store {
   id: string;
   name: string;
   address: string;
+  logo_url?: string;
+  location?: string;
 }
 
 export const useProducts = () => {
@@ -24,10 +26,9 @@ export const useProducts = () => {
   useEffect(() => {
     const ensureMockData = async () => {
       try {
-        console.log("Ensuring mock data exists on Products Page...");
-        await generateMockStores(null);
-        await generateMockProducts(null);
-        console.log("Mock data check completed");
+        console.log("Initializing app data...");
+        await initializeAppData(null);
+        console.log("App data initialization completed");
       } catch (error) {
         console.error("Error ensuring mock data:", error);
       }
@@ -41,7 +42,7 @@ export const useProducts = () => {
     try {
       console.log('Fetching products...');
       
-      // Fetch all products without filtering by user_id
+      // Fetch all products with store information
       let { data: productData, error } = await supabase
         .from('products')
         .select(`
@@ -49,7 +50,9 @@ export const useProducts = () => {
           store:store_id (
             id,
             name,
-            address
+            address,
+            logo_url,
+            location
           )
         `);
       
@@ -62,8 +65,7 @@ export const useProducts = () => {
       
       if (!productData || productData.length === 0) {
         console.log('No products found, generating mock data...');
-        await generateMockStores(null);
-        await generateMockProducts(null);
+        await initializeAppData(null);
         
         // Try fetching again
         const { data: refreshedProducts, error: refreshError } = await supabase
@@ -73,7 +75,9 @@ export const useProducts = () => {
             store:store_id (
               id,
               name,
-              address
+              address,
+              logo_url,
+              location
             )
           `);
           
@@ -103,7 +107,13 @@ export const useProducts = () => {
           const store = storeList.find(s => s.id === enhancedProduct.store_id);
           return {
             ...enhancedProduct,
-            store: store ? { id: store.id, name: store.name, address: store.address } : undefined
+            store: store ? { 
+              id: store.id, 
+              name: store.name, 
+              address: store.address,
+              logo_url: store.logo_url,
+              location: store.location
+            } : undefined
           };
         }
         return enhancedProduct;

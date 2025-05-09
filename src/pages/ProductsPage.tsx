@@ -4,12 +4,13 @@ import { Layout } from '@/components/LayoutComponents';
 import { Button } from "@/components/ui/button";
 import { ProductFormDialog } from '@/components/ProductComponents';
 import { useAuth } from '@/components/AuthComponents';
-import { PlusCircle } from 'lucide-react';
+import { PlusCircle, Store } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
 import { useProducts } from '@/hooks/useProducts';
 import ProductFilters from '@/components/product/ProductFilters';
 import ProductList from '@/components/product/ProductList';
 import RecommendationNotice from '@/components/product/RecommendationNotice';
+import { initializeAppData } from '@/utils/seedData';
 
 const ProductsPage = () => {
   const { getUser } = useAuth();
@@ -30,6 +31,19 @@ const ProductsPage = () => {
     setSelectedStore,
     loadProducts 
   } = useProducts();
+
+  // Initialize app data when page loads
+  useEffect(() => {
+    const initData = async () => {
+      try {
+        await initializeAppData(user?.id || null);
+      } catch (error) {
+        console.error('Error initializing app data:', error);
+      }
+    };
+    
+    initData();
+  }, [user?.id]);
 
   // Check if coming from recommendations or another source
   useEffect(() => {
@@ -78,6 +92,10 @@ const ProductsPage = () => {
           onUpdate={loadProducts}
           isUserLoggedIn={!!user}
           userId={user?.id}
+          showStoreFilter={true}
+          selectedStore={selectedStore}
+          onStoreSelect={setSelectedStore}
+          stores={stores}
         />
       </div>
       
