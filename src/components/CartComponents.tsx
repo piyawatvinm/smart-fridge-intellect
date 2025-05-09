@@ -47,7 +47,16 @@ export const CartIcon = () => {
   );
 };
 
-export const AddToCartButton = ({ productId, variant = 'default', size = 'default' }) => {
+// Update the prop types to use specific string literals instead of string
+export const AddToCartButton = ({ 
+  productId, 
+  variant = 'default' as const, 
+  size = 'default' as const 
+}: { 
+  productId: string; 
+  variant?: 'default' | 'destructive' | 'outline' | 'secondary' | 'ghost' | 'link';
+  size?: 'default' | 'sm' | 'lg' | 'icon';
+}) => {
   const { getUser } = useAuth();
   const user = getUser();
   const [loading, setLoading] = useState(false);
