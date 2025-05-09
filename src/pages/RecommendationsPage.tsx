@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from '@/components/AuthComponents';
-import { Check, X, ShoppingCart } from 'lucide-react';
+import { Check, X, ShoppingCart, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { 
@@ -109,6 +109,17 @@ const RecommendationsPage = () => {
     }
   };
   
+  // Check if all ingredients are available for cooking
+  const areAllIngredientsAvailable = selectedRecipe && 
+    selectedRecipe.ingredients.every(ingredient => ingredient.available);
+  
+  // Check if all missing ingredients have products available
+  const allMissingIngredientsHaveProducts = missingIngredients.length > 0 && 
+    missingIngredients.every(ingredient => {
+      const products = productsForIngredients[ingredient.name];
+      return products && products.length > 0;
+    });
+  
   // Add all missing ingredients to cart
   const handleAddAllToCart = async () => {
     if (!user) {
@@ -125,6 +136,7 @@ const RecommendationsPage = () => {
     setAddingToCart(true);
     try {
       let addedCount = 0;
+      let missingProductCount = 0;
       
       // For each missing ingredient
       for (const ingredient of missingIngredients) {
@@ -138,11 +150,17 @@ const RecommendationsPage = () => {
           // Add to cart
           await addToCart(user.id, product.id, 1);
           addedCount++;
+        } else {
+          missingProductCount++;
         }
       }
       
       if (addedCount > 0) {
-        toast.success(`Added ${addedCount} items to cart`);
+        if (missingProductCount > 0) {
+          toast.warning(`Added ${addedCount} items to cart, but ${missingProductCount} ingredients have no matching products`);
+        } else {
+          toast.success(`Added ${addedCount} items to cart`);
+        }
         navigate('/my-orders');
       } else {
         toast.warning('No matching products found');
@@ -335,12 +353,30 @@ const RecommendationsPage = () => {
                                 <div className="pt-4 border-t border-gray-200">
                                   <Button
                                     onClick={handleAddAllToCart}
-                                    disabled={addingToCart || !user}
+                                    disabled={addingToCart || !user || !allMissingIngredientsHaveProducts}
                                     className="bg-fridge-blue hover:bg-blue-700"
                                   >
                                     <ShoppingCart className="h-4 w-4 mr-2" />
                                     {addingToCart ? 'Adding...' : 'Add Missing Ingredients to Cart'}
                                   </Button>
+                                  
+                                  {!allMissingIngredientsHaveProducts && (
+                                    <div className="mt-2 flex items-center text-amber-600 text-sm">
+                                      <AlertTriangle className="h-4 w-4 mr-1" />
+                                      <span>Not all ingredients have matching products</span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                              
+                              {areAllIngredientsAvailable && (
+                                <div className="pt-4 border-t border-gray-200">
+                                  <div className="p-3 bg-green-50 border border-green-200 rounded-md">
+                                    <p className="text-green-700 flex items-center">
+                                      <Check className="h-4 w-4 mr-2" />
+                                      You have all ingredients needed for this recipe!
+                                    </p>
+                                  </div>
                                 </div>
                               )}
                             </div>
