@@ -303,12 +303,12 @@ export const generateMockStores = async (userId: string | null): Promise<void> =
     
   } catch (error) {
     console.error('Error creating mock stores:', error);
-    throw error;
+    // Don't rethrow the error, just log it
   }
 };
 
 // Generate mock products with ALL ingredients from recipes
-export const generateMockProducts = async (userId: string | null): Promise<void> => {
+export const generateMockProducts = async (userId: string | null): Promise<Product[] | void> => {
   try {
     // Check if any products already exist
     const { data: existingProducts, error: checkError } = await supabase
@@ -324,7 +324,7 @@ export const generateMockProducts = async (userId: string | null): Promise<void>
     // If products already exist, don't recreate them
     if (existingProducts && existingProducts.length > 0) {
       console.log('Mock products already exist, skipping creation');
-      return existingProducts;
+      return;
     }
 
     // Get stores to associate products with
@@ -333,11 +333,7 @@ export const generateMockProducts = async (userId: string | null): Promise<void>
       .select('id');
 
     if (storeError || !stores || stores.length === 0) {
-      const createdStores = await generateMockStores(userId);
-      if (!createdStores || createdStores.length === 0) {
-        console.error('No stores found to associate products with');
-        return;
-      }
+      await generateMockStores(userId);
     }
 
     // Fetch stores again if we had to create them
@@ -575,12 +571,12 @@ export const generateMockProducts = async (userId: string | null): Promise<void>
     );
 
     // Insert mock products without user_id to make them visible to all users
-    const { error } = await supabase.from('products').insert(
+    const { data, error } = await supabase.from('products').insert(
       products.map(product => ({
         ...product,
         user_id: null // Make visible to all users
       }))
-    );
+    ).select();
     
     if (error) {
       console.error('Error creating mock products:', error);
@@ -588,7 +584,7 @@ export const generateMockProducts = async (userId: string | null): Promise<void>
     }
 
     console.log(`Mock products created successfully: ${products.length} products`);
-    return products;
+    return data;
   } catch (error) {
     console.error('Error in generateMockProducts:', error);
   }
