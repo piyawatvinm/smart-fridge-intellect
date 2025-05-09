@@ -15,7 +15,8 @@ import {
   updateRecipeAvailability, 
   findProductsForIngredients,
   initializeProducts as generateMockProducts,
-  initializeStores as generateMockStores
+  initializeStores as generateMockStores,
+  initializeIngredients as generateMockIngredients // Add this import
 } from '@/utils/seedData';
 import { addToCart } from '@/lib/supabaseHelpers';
 import { supabase } from '@/integrations/supabase/client';
@@ -31,6 +32,7 @@ const RecommendationsPage = () => {
   const [productsForIngredients, setProductsForIngredients] = useState<any>({});
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [addingToCart, setAddingToCart] = useState(false);
+  const [creatingIngredients, setCreatingIngredients] = useState(false);
   
   // Make sure mock data is generated when the page loads
   useEffect(() => {
@@ -119,6 +121,101 @@ const RecommendationsPage = () => {
       const products = productsForIngredients[ingredient.name];
       return products && products.length > 0;
     });
+  
+  // Create all missing ingredients
+  const handleCreateAllIngredients = async () => {
+    if (!user) {
+      toast.error('Please log in to add ingredients to your fridge');
+      navigate('/login');
+      return;
+    }
+    
+    if (missingIngredients.length === 0) {
+      toast.info('No missing ingredients to add');
+      return;
+    }
+    
+    setCreatingIngredients(true);
+    try {
+      // Gather all needed ingredient names
+      const neededIngredientNames = new Set();
+      
+      recipes.forEach(recipe => {
+        recipe.ingredients.forEach(ingredient => {
+          if (!ingredient.available) {
+            neededIngredientNames.add(ingredient.name);
+          }
+        });
+      });
+      
+      // Use the same logic as in seedData.ts but force creation of these specific ingredients
+      const { data: products, error: productsError } = await supabase
+        .from('products')
+        .select('id, name, category, unit');
+        
+      if (productsError || !products || products.length === 0) {
+        throw new Error('Error fetching products');
+      }
+      
+      const ingredientsToInsert = [];
+      
+      neededIngredientNames.forEach(ingredientName => {
+        const lowerName = ingredientName.toString().toLowerCase();
+        const matchingProduct = products.find(p => 
+          p.name.toLowerCase().includes(lowerName) || 
+          lowerName.includes(p.name.toLowerCase())
+        );
+        
+        if (matchingProduct) {
+          // Set expiry date 30 days from now
+          const expiryDate = new Date();
+          expiryDate.setDate(expiryDate.getDate() + 30);
+          
+          ingredientsToInsert.push({
+            name: ingredientName.toString(),
+            quantity: 3, // Enough quantity
+            unit: matchingProduct.unit || 'unit',
+            category: matchingProduct.category,
+            expiry_date: expiryDate.toISOString().split('T')[0],
+            user_id: user.id,
+            product_id: matchingProduct.id
+          });
+        }
+      });
+      
+      if (ingredientsToInsert.length === 0) {
+        throw new Error('No matching products found for ingredients');
+      }
+      
+      // Insert ingredients
+      const { error } = await supabase
+        .from('ingredients')
+        .insert(ingredientsToInsert);
+        
+      if (error) {
+        throw new Error('Error inserting ingredients');
+      }
+      
+      toast.success(`Added ${ingredientsToInsert.length} ingredients to your fridge!`);
+      
+      // Reload recipes to update availability
+      const mockRecipes = generateMockRecipes();
+      const updatedRecipes = await updateRecipeAvailability(mockRecipes, user.id);
+      setRecipes(updatedRecipes);
+      
+      // Update selected recipe
+      const updatedSelectedRecipe = updatedRecipes.find(r => r.id === selectedRecipe.id);
+      if (updatedSelectedRecipe) {
+        handleRecipeSelect(updatedSelectedRecipe);
+      }
+      
+    } catch (error) {
+      console.error('Error creating ingredients:', error);
+      toast.error('Failed to add ingredients to fridge');
+    } finally {
+      setCreatingIngredients(false);
+    }
+  };
   
   // Add all missing ingredients to cart
   const handleAddAllToCart = async () => {
@@ -268,14 +365,26 @@ const RecommendationsPage = () => {
                     ))}
                   </ul>
                 </CardContent>
-                <CardFooter>
-                  <Button 
+                <CardFooter className="flex flex-col space-y-2">
+                  <Button
                     variant="outline" 
                     className="w-full"
                     onClick={handleBrowseProducts}
                   >
                     Browse All Products
                   </Button>
+                  
+                  {/* Add new button to create all missing ingredients at once */}
+                  {user && recipes.some(r => r.missingCount > 0) && (
+                    <Button
+                      variant="default"
+                      className="w-full bg-green-600 hover:bg-green-700"
+                      onClick={handleCreateAllIngredients}
+                      disabled={creatingIngredients}
+                    >
+                      {creatingIngredients ? 'Adding...' : 'Add All Missing Ingredients to Fridge'}
+                    </Button>
+                  )}
                 </CardFooter>
               </Card>
             </div>

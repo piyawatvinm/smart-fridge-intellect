@@ -312,34 +312,92 @@ export const initializeIngredients = async (userId: string) => {
       return data || [];
     }
     
-    // Get some products to convert into ingredients
+    // Get recipe ingredients we need to cover
+    const mockRecipes = generateMockRecipes();
+    const neededIngredients = new Set();
+    
+    // Extract all unique ingredients needed for recipes
+    mockRecipes.forEach(recipe => {
+      recipe.ingredients.forEach(ingredient => {
+        neededIngredients.add(ingredient.name);
+      });
+    });
+    
+    console.log('Need to ensure these ingredients exist:', Array.from(neededIngredients));
+    
+    // Get all products to convert into ingredients
     const { data: products, error: productsError } = await supabase
       .from('products')
-      .select('id, name, category, unit')
-      .limit(15);  // Get a few products to start with
+      .select('id, name, category, unit');
       
     if (productsError || !products || products.length === 0) {
       console.error('Error fetching products for ingredients:', productsError);
       return [];
     }
     
-    // Create starter ingredients from the products
-    const ingredientsToInsert = products.map(product => {
-      // Random expiry date between 3 and 30 days from now
-      const daysToExpiry = Math.floor(Math.random() * 27) + 3;
-      const expiryDate = new Date();
-      expiryDate.setDate(expiryDate.getDate() + daysToExpiry);
-      
-      return {
-        name: product.name,
-        quantity: Math.floor(Math.random() * 5) + 1, // 1-5 units
-        unit: product.unit,
-        category: product.category,
-        expiry_date: expiryDate.toISOString().split('T')[0],
-        user_id: userId,
-        product_id: product.id
-      };
+    // Create ingredients from the products, prioritizing those needed for recipes
+    const ingredientsToInsert = [];
+    const productsByName = {};
+    
+    // Index products by name for easier lookup
+    products.forEach(product => {
+      const lowerName = product.name.toLowerCase();
+      if (!productsByName[lowerName]) {
+        productsByName[lowerName] = product;
+      }
     });
+    
+    // First add all needed ingredients from recipes
+    neededIngredients.forEach(ingredientName => {
+      const lowerName = ingredientName.toString().toLowerCase();
+      const matchingProduct = productsByName[lowerName] || 
+                             products.find(p => p.name.toLowerCase().includes(lowerName) || 
+                                              lowerName.includes(p.name.toLowerCase()));
+      
+      if (matchingProduct) {
+        // Random expiry date between 10 and 60 days from now (ensure they don't expire soon)
+        const daysToExpiry = Math.floor(Math.random() * 50) + 10;
+        const expiryDate = new Date();
+        expiryDate.setDate(expiryDate.getDate() + daysToExpiry);
+        
+        ingredientsToInsert.push({
+          name: ingredientName.toString(),
+          quantity: Math.floor(Math.random() * 3) + 2, // 2-4 units (ensure enough quantity)
+          unit: matchingProduct.unit || 'unit',
+          category: matchingProduct.category,
+          expiry_date: expiryDate.toISOString().split('T')[0],
+          user_id: userId,
+          product_id: matchingProduct.id
+        });
+        
+        // Remove this product from consideration to avoid duplicates
+        delete productsByName[lowerName];
+      }
+    });
+    
+    // Then add some additional random ingredients (up to 10 more)
+    const additionalCount = Math.min(10, products.length - ingredientsToInsert.length);
+    if (additionalCount > 0) {
+      const remainingProducts = Object.values(productsByName);
+      const selectedProducts = remainingProducts.slice(0, additionalCount);
+      
+      selectedProducts.forEach(product => {
+        // Random expiry date between 3 and 30 days from now
+        const daysToExpiry = Math.floor(Math.random() * 27) + 3;
+        const expiryDate = new Date();
+        expiryDate.setDate(expiryDate.getDate() + daysToExpiry);
+        
+        ingredientsToInsert.push({
+          name: product.name,
+          quantity: Math.floor(Math.random() * 5) + 1, // 1-5 units
+          unit: product.unit,
+          category: product.category,
+          expiry_date: expiryDate.toISOString().split('T')[0],
+          user_id: userId,
+          product_id: product.id
+        });
+      });
+    }
     
     // Insert ingredients
     const { data: insertedIngredients, error } = await supabase
@@ -352,7 +410,7 @@ export const initializeIngredients = async (userId: string) => {
       return [];
     }
     
-    console.log(`${insertedIngredients.length} ingredients created`);
+    console.log(`${insertedIngredients.length} ingredients created, including all needed for recipes`);
     return insertedIngredients;
   } catch (error) {
     console.error('Error in initializeIngredients:', error);
