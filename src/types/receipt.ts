@@ -29,3 +29,12 @@ export interface ManualItem {
   unit: string;
   expiryDate: string;
 }
+
+// Add the missing ReceiptItem type
+export interface ReceiptItem {
+  id: string;
+  name: string;
+  quantity: number;
+  price: number;
+  unit: string;
+}

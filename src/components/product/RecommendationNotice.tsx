@@ -8,13 +8,15 @@ interface RecommendationNoticeProps {
   recipeCount?: number;
   storeCount?: number;
   availableProductCount?: number;
+  totalIngredientCount?: number;
 }
 
 const RecommendationNotice: React.FC<RecommendationNoticeProps> = ({ 
   isVisible, 
   recipeCount = 0,
   storeCount = 0,
-  availableProductCount = 0
+  availableProductCount = 0,
+  totalIngredientCount = 0
 }) => {
   if (!isVisible) return null;
 
@@ -31,8 +33,8 @@ const RecommendationNotice: React.FC<RecommendationNoticeProps> = ({
           <ul className="list-disc pl-5 space-y-1 text-sm">
             <li>{recipeCount > 0 ? `${recipeCount} recipes available with ingredient matching` : 'Get product suggestions for your recipes'}</li>
             <li>Products are available from {storeCount > 0 ? storeCount : 'multiple'} different stores</li>
-            {availableProductCount > 0 && (
-              <li><span className="font-medium">{availableProductCount}</span> products available for your recipes</li>
+            {availableProductCount > 0 && totalIngredientCount > 0 && (
+              <li><span className="font-medium">{availableProductCount}</span> out of {totalIngredientCount} ingredients have matching products</li>
             )}
             <li>Compare prices between stores</li>
             <li>Once ordered, items will appear in your ingredients list</li>

@@ -88,62 +88,95 @@ export const useProducts = () => {
     }
   };
   
-  // New function to get products by ingredient name
+  // Improved product matching for ingredients
   const getProductsForIngredients = async (ingredientNames: string[]) => {
     setLoading(true);
     try {
       // Create a map to store products by ingredient name
       const productMap: Record<string, Product[]> = {};
       
-      // For each ingredient, find matching products
+      // Load all products first if not already loaded
+      if (products.length === 0) {
+        await loadProducts();
+      }
+      
+      // For each ingredient, find matching products with improved matching algorithm
       for (const ingredientName of ingredientNames) {
-        // Create search terms based on the ingredient name
-        // For example, "Fresh Basil" becomes "%basil%" and "%fresh%"
-        const searchTerms = ingredientName
-          .split(' ')
-          .filter(term => term.length > 2) // Only terms with length > 2
-          .map(term => `%${term.toLowerCase()}%`);
-          
-        if (searchTerms.length === 0) continue;
+        // Normalize ingredient name for better matching
+        const normalizedName = ingredientName.toLowerCase().trim();
         
-        // Build query to find products that match the ingredient
-        let query = supabase
-          .from('products')
-          .select(`
-            *,
-            store:store_id (
-              id,
-              name,
-              address,
-              logo_url,
-              location
+        // Match products using more flexible criteria
+        const matchingProducts = products.filter(product => {
+          const productName = product.name.toLowerCase();
+          
+          // Direct match (product name contains ingredient name or vice versa)
+          if (productName.includes(normalizedName) || normalizedName.includes(productName)) {
+            return true;
+          }
+          
+          // Word-by-word matching (any word in ingredient name matches any word in product name)
+          const ingredientWords = normalizedName.split(/\s+/).filter(word => word.length > 2);
+          const productWords = productName.split(/\s+/);
+          
+          return ingredientWords.some(ingWord => 
+            productWords.some(prodWord => 
+              prodWord.includes(ingWord) || ingWord.includes(prodWord)
             )
-          `);
-          
-        // Add search conditions
-        query = searchTerms.reduce((q, term, index) => {
-          return index === 0 
-            ? q.ilike('name', term)
-            : q.or(`name.ilike.${term}`);
-        }, query);
-        
-        // Execute query and get results
-        const { data, error } = await query;
-        
-        if (error) {
-          console.error(`Error fetching products for '${ingredientName}':`, error);
-          continue;
-        }
-        
-        // Enhance products with store information
-        const matchingProducts = data.map(product => ({
-          ...product,
-          store_id: product.store_id || null
-        }));
+          );
+        });
         
         // Store in the map
         productMap[ingredientName] = matchingProducts;
+        
+        // If no matches found with the improved algorithm, try a database query with ILIKE
+        if (matchingProducts.length === 0) {
+          // Create search terms based on the ingredient name
+          const searchTerms = ingredientName
+            .split(' ')
+            .filter(term => term.length > 2) // Only terms with length > 2
+            .map(term => `%${term.toLowerCase()}%`);
+            
+          if (searchTerms.length > 0) {
+            // Build query to find products that match the ingredient
+            let query = supabase
+              .from('products')
+              .select(`
+                *,
+                store:store_id (
+                  id,
+                  name,
+                  address,
+                  logo_url,
+                  location
+                )
+              `);
+              
+            // Add search conditions
+            query = searchTerms.reduce((q, term, index) => {
+              return index === 0 
+                ? q.ilike('name', term)
+                : q.or(`name.ilike.${term}`);
+            }, query);
+            
+            // Execute query and get results
+            const { data, error } = await query;
+            
+            if (!error && data.length > 0) {
+              // Enhance products with store information
+              const dbMatchingProducts = data.map(product => ({
+                ...product,
+                store_id: product.store_id || null
+              }));
+              
+              // Store in the map
+              productMap[ingredientName] = dbMatchingProducts;
+            }
+          }
+        }
       }
+      
+      console.log('Product matches found:', Object.entries(productMap).map(([ing, prods]) => 
+        `${ing}: ${prods.length} products`).join(', '));
       
       setProductsByIngredient(productMap);
       return productMap;
@@ -216,4 +249,3 @@ export const useProducts = () => {
     getMatchedIngredientNames
   };
 };
-
