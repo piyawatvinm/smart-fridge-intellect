@@ -13,7 +13,8 @@ import {
   addToCart,
   checkIngredientsAvailability,
   fetchRecipes,
-  findProductsForRecipeIngredients
+  findProductsForRecipeIngredients,
+  createProductIfNotExists
 } from '@/lib/supabaseHelpers';
 import { supabase } from '@/integrations/supabase/client';
 import { useProducts } from '@/hooks/useProducts';
@@ -268,7 +269,7 @@ const RecommendationsPage = () => {
     }
   };
   
-  // Add all missing ingredients to cart
+  // Add all missing ingredients to cart with product creation if needed
   const handleAddAllToCart = async () => {
     if (!user) {
       toast.error('Please log in to add items to cart');
@@ -284,34 +285,34 @@ const RecommendationsPage = () => {
     setAddingToCart(true);
     try {
       let addedCount = 0;
-      let missingProductCount = 0;
       
       // For each missing ingredient
       for (const ingredient of missingIngredients) {
-        // Get matching products
-        const matchingProducts = productsForIngredients[ingredient.name];
+        const normalizedName = ingredient.name.trim().toLowerCase();
         
-        if (matchingProducts && matchingProducts.length > 0) {
-          // Choose the first matching product
-          const product = matchingProducts[0];
+        try {
+          // Create the product if it doesn't exist
+          const product = await createProductIfNotExists(
+            normalizedName,
+            user.id,
+            ingredient.unit || 'pcs'
+          );
           
-          // Add to cart
-          await addToCart(user.id, product.id, 1);
-          addedCount++;
-        } else {
-          missingProductCount++;
+          if (product) {
+            // Add to cart
+            await addToCart(user.id, product.id, 1);
+            addedCount++;
+          }
+        } catch (error) {
+          console.error(`Error processing ingredient ${ingredient.name}:`, error);
         }
       }
       
       if (addedCount > 0) {
-        if (missingProductCount > 0) {
-          toast.warning(`Added ${addedCount} items to cart, but ${missingProductCount} ingredients have no matching products`);
-        } else {
-          toast.success(`Added ${addedCount} items to cart`);
-        }
+        toast.success(`Added ${addedCount} items to cart`);
         navigate('/my-orders');
       } else {
-        toast.warning('No matching products found');
+        toast.warning('Failed to add items to cart');
       }
     } catch (error) {
       console.error('Error adding items to cart:', error);
@@ -321,8 +322,8 @@ const RecommendationsPage = () => {
     }
   };
   
-  // Add single ingredient to cart
-  const handleAddIngredientToCart = async (ingredient: Ingredient, product: any) => {
+  // Add single ingredient to cart with product creation if needed
+  const handleAddIngredientToCart = async (ingredient: Ingredient, product?: any) => {
     if (!user) {
       toast.error('Please log in to add items to cart');
       navigate('/login');
@@ -330,8 +331,25 @@ const RecommendationsPage = () => {
     }
     
     try {
-      await addToCart(user.id, product.id, 1);
-      toast.success(`Added ${product.name} to cart`);
+      let productToAdd = product;
+      
+      // If no product is provided or it doesn't have an ID, create one
+      if (!productToAdd || !productToAdd.id) {
+        const normalizedName = ingredient.name.trim().toLowerCase();
+        
+        productToAdd = await createProductIfNotExists(
+          normalizedName,
+          user.id,
+          ingredient.unit || 'pcs'
+        );
+      }
+      
+      if (productToAdd && productToAdd.id) {
+        await addToCart(user.id, productToAdd.id, 1);
+        toast.success(`Added ${productToAdd.name} to cart`);
+      } else {
+        toast.error(`Failed to add ${ingredient.name} to cart`);
+      }
     } catch (error) {
       console.error('Error adding item to cart:', error);
       toast.error('Failed to add item to cart');

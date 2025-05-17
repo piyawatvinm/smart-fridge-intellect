@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Layout } from '@/components/LayoutComponents';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +9,8 @@ import { useAuth } from '@/components/AuthComponents';
 import { Check, X, ShoppingCart, AlertCircle, ChefHat, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useRecipeGeneration, Recipe } from '@/hooks/useRecipeGeneration';
+import { toast } from 'sonner';
+import { createProductIfNotExists } from '@/lib/supabaseHelpers';
 
 const GenerateRecipePage = () => {
   const { getUser } = useAuth();
@@ -33,6 +34,26 @@ const GenerateRecipePage = () => {
   };
   
   const currentRecipe = generatedRecipes[selectedRecipeIndex];
+  
+  // Update the method to add missing ingredients to cart with product creation
+  const handleAddToCartClick = async (recipeIndex: number) => {
+    if (!user) {
+      toast.error('Please sign in to add items to cart');
+      navigate('/login');
+      return;
+    }
+    
+    const recipe = generatedRecipes[recipeIndex];
+    if (!recipe) return;
+    
+    try {
+      setSelectedRecipeIndex(recipeIndex);
+      await addMissingIngredientsToCart(recipeIndex);
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+      toast.error('Failed to add ingredients to cart');
+    }
+  };
   
   return (
     <Layout>
@@ -203,7 +224,7 @@ const GenerateRecipePage = () => {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => addMissingIngredientsToCart(selectedRecipeIndex)}
+                                onClick={() => handleAddToCartClick(selectedRecipeIndex)}
                                 disabled={addingToCart || !user}
                               >
                                 {addingToCart ? (

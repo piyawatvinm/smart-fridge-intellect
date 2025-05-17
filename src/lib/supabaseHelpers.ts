@@ -1127,3 +1127,61 @@ export const findProductsForRecipeIngredients = async (recipeId) => {
     return {};
   }
 };
+
+// Create a product if it doesn't exist
+export const createProductIfNotExists = async (
+  name: string,
+  userId: string,
+  unit: string = 'pcs'
+): Promise<any> => {
+  try {
+    // Normalize the name for consistent searching
+    const normalizedName = name.trim().toLowerCase();
+    
+    // Check if a product with the same normalized name exists
+    const { data: existingProducts } = await supabase
+      .from('products')
+      .select('*')
+      .ilike('name', normalizedName);
+      
+    if (existingProducts && existingProducts.length > 0) {
+      // Return the existing product
+      return existingProducts[0];
+    }
+    
+    // Product doesn't exist, get a random store
+    const { data: stores } = await supabase
+      .from('stores')
+      .select('id')
+      .limit(1);
+      
+    const storeId = stores && stores.length > 0 ? stores[0].id : null;
+    
+    // Generate a random price between 10 and 50
+    const price = Math.floor(Math.random() * 41) + 10;
+    
+    // Create a new product
+    const { data: newProduct, error } = await supabase
+      .from('products')
+      .insert({
+        name: name, // Keep original case but trimmed
+        price: price,
+        category: 'auto-generated',
+        user_id: userId,
+        store_id: storeId,
+        unit: unit
+      })
+      .select()
+      .single();
+      
+    if (error) {
+      console.error('Error creating product:', error);
+      throw error;
+    }
+    
+    return newProduct;
+  } catch (error) {
+    console.error('Error in createProductIfNotExists:', error);
+    throw error;
+  }
+};
