@@ -3,12 +3,22 @@
 
 import * as React from "react"
 import { ThemeProvider as NextThemesProvider } from "next-themes"
-import { type ThemeProviderProps } from "next-themes/dist/types"
+
+// Using React.PropsWithChildren with the properties from ThemeProviderProps
+type ThemeProps = React.PropsWithChildren<{
+  defaultTheme?: string;
+  storageKey?: string;
+  enableSystem?: boolean;
+  disableTransitionOnChange?: boolean;
+  enableColorScheme?: boolean;
+  forcedTheme?: string;
+  attribute?: string;
+}>
 
 export function ThemeProvider({
   children,
   ...props
-}: ThemeProviderProps) {
+}: ThemeProps) {
   return (
     <NextThemesProvider {...props}>
       {children}
