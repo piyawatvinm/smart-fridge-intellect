@@ -6,58 +6,50 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/components/AuthComponents";
 import { getCategoryForItem } from "@/lib/supabaseHelpers";
-import { Store, ReceiptItem, ManualItem } from "@/types/receipt";
-import { ReceiptUploadCard } from "@/components/receipt/ReceiptUploadCard";
-import { ExtractedItemsCard } from "@/components/receipt/ExtractedItemsCard";
-import { ManualEntryCard } from "@/components/receipt/ManualEntryCard";
+import { Product, GeneratedItem, ManualItem } from "@/types/receipt";
+import { ImageUploader } from "@/components/receipt/ImageUploader";
+import { GeneratedItemsTable } from "@/components/receipt/GeneratedItemsTable";
+import { ManualItemForm } from "@/components/receipt/ManualItemForm";
+import { Button } from "@/components/ui/button";
+import { Loader2, Check, ArrowRight } from "lucide-react";
 
 const ReceiptPage = () => {
   // State for receipt upload
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [isProcessed, setIsProcessed] = useState(false);
-  const [extractedItems, setExtractedItems] = useState<ReceiptItem[]>([]);
-  
-  // State for store selection
-  const [stores, setStores] = useState<Store[]>([]);
-  const [selectedStore, setSelectedStore] = useState<string>("");
-  const [newStoreName, setNewStoreName] = useState<string>("");
-  const [newStoreAddress, setNewStoreAddress] = useState<string>("");
-  const [showNewStoreInput, setShowNewStoreInput] = useState(false);
-  
-  // State for saving process
-  const [isSavingIngredients, setSavingIngredients] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [generatedItems, setGeneratedItems] = useState<GeneratedItem[]>([]);
+  const [manualItems, setManualItems] = useState<ManualItem[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
   
   const navigate = useNavigate();
   const { getUser } = useAuth();
   const user = getUser();
 
-  // Load user's stores
+  // Fetch products from Supabase
   useEffect(() => {
-    const fetchStores = async () => {
-      if (!user) return;
-      
+    const fetchProducts = async () => {
       try {
         const { data, error } = await supabase
-          .from('stores')
-          .select('*')
-          .eq('user_id', user.id);
+          .from('products')
+          .select('*');
         
         if (error) throw error;
         
         if (data) {
-          setStores(data as Store[]);
+          setProducts(data);
         }
       } catch (error) {
-        console.error('Error fetching stores:', error);
+        console.error('Error fetching products:', error);
+        toast.error("Failed to load products");
       }
     };
     
-    fetchStores();
-  }, [user]);
+    fetchProducts();
+  }, []);
 
-  // File handling functions
+  // Handle file upload
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
@@ -70,13 +62,9 @@ const ReceiptPage = () => {
       };
       reader.readAsDataURL(selectedFile);
       
-      setIsProcessed(false);
-      setExtractedItems([]);
+      // Clear previous items when a new image is uploaded
+      setGeneratedItems([]);
     }
-  };
-
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
   };
 
   const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
@@ -93,193 +81,149 @@ const ReceiptPage = () => {
       };
       reader.readAsDataURL(droppedFile);
       
-      setIsProcessed(false);
-      setExtractedItems([]);
+      // Clear previous items when a new image is uploaded
+      setGeneratedItems([]);
     }
   };
 
-  const triggerFileInput = () => {
-    // This function is passed to the component
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
   };
 
-  // Receipt handling functions
-  const processReceipt = () => {
-    if (!file) return;
-    
-    setIsProcessing(true);
-    
-    // Simulate receipt processing with OCR
-    setTimeout(() => {
-      // Mock OCR result
-      const mockExtractedItems = [
-        { name: "Milk", quantity: 1, unit: "carton", price: 2.99 },
-        { name: "Eggs", quantity: 12, unit: "piece", price: 3.49 },
-        { name: "Bread", quantity: 1, unit: "loaf", price: 2.29 },
-        { name: "Cheese", quantity: 1, unit: "pack", price: 4.99 },
-        { name: "Tomatoes", quantity: 4, unit: "piece", price: 2.79 },
-      ];
-      
-      setExtractedItems(mockExtractedItems);
-      setIsProcessing(false);
-      setIsProcessed(true);
-      toast.success("Receipt processed successfully!");
-    }, 2000);
-  };
-
-  const cancelProcessing = () => {
+  const resetUpload = () => {
     setFile(null);
     setPreview(null);
-    setIsProcessed(false);
-    setExtractedItems([]);
+    setGeneratedItems([]);
   };
 
-  // Store handling functions
-  const saveNewStore = async () => {
-    try {
-      if (!newStoreName || !newStoreAddress || !user) {
-        toast.error("Please provide both store name and address");
-        return;
-      }
-      
-      // Create a new store
-      const { data, error } = await supabase
-        .from('stores')
-        .insert([
-          { 
-            name: newStoreName, 
-            address: newStoreAddress,
-            user_id: user.id,
-          }
-        ])
-        .select();
-      
-      if (error) throw error;
-      
-      if (data && data.length > 0) {
-        // Add new store to list
-        setStores([...stores, data[0] as Store]);
-        setSelectedStore(data[0].id);
-        setShowNewStoreInput(false);
-        setNewStoreName("");
-        setNewStoreAddress("");
-        toast.success("New store added!");
-      }
-    } catch (error) {
-      console.error('Error adding store:', error);
-      toast.error("Failed to add new store");
+  // Generate random items from products
+  const generateItems = () => {
+    if (products.length === 0) {
+      toast.error("No products available to generate items");
+      return;
     }
+
+    setIsLoading(true);
+
+    // Simulate API call
+    setTimeout(() => {
+      try {
+        // Generate random number of items (3-5)
+        const numItems = Math.floor(Math.random() * 3) + 3;
+        
+        // Shuffle products and take the first numItems
+        const shuffledProducts = [...products].sort(() => 0.5 - Math.random());
+        const selectedProducts = shuffledProducts.slice(0, numItems);
+        
+        // Generate items from selected products
+        const items = selectedProducts.map(product => ({
+          id: product.id,
+          name: product.name,
+          quantity: Math.floor(Math.random() * 5) + 1, // Random quantity 1-5
+          unit: product.unit || getRandomUnit(),
+          isEdited: false
+        }));
+        
+        setGeneratedItems(items);
+        toast.success(`Generated ${items.length} items`);
+      } catch (error) {
+        console.error('Error generating items:', error);
+        toast.error("Failed to generate items");
+      } finally {
+        setIsLoading(false);
+      }
+    }, 1000);
   };
 
-  // Save to ingredients functions
+  const getRandomUnit = () => {
+    const units = ['pcs', 'g', 'ml', 'kg', 'l'];
+    return units[Math.floor(Math.random() * units.length)];
+  };
+
+  // Handle item update
+  const updateGeneratedItem = (id: string, field: string, value: any) => {
+    setGeneratedItems(items => 
+      items.map(item => 
+        item.id === id 
+          ? { ...item, [field]: value, isEdited: true } 
+          : item
+      )
+    );
+  };
+
+  // Handle adding a manual item
+  const addManualItem = (item: ManualItem) => {
+    setManualItems([...manualItems, item]);
+    toast.success("Manual item added");
+  };
+
+  // Remove manual item
+  const removeManualItem = (index: number) => {
+    setManualItems(items => items.filter((_, i) => i !== index));
+  };
+
+  // Save all items to ingredients
   const saveToIngredients = async () => {
+    if (!user) {
+      toast.error("You must be logged in to save ingredients");
+      return;
+    }
+
+    if (generatedItems.length === 0 && manualItems.length === 0) {
+      toast.error("No items to save");
+      return;
+    }
+
+    setIsSaving(true);
+
     try {
-      if (extractedItems.length === 0 || !user) {
-        toast.error("No items to save or you must be logged in");
-        return;
-      }
-      
-      setSavingIngredients(true);
-      
-      // First, create a receipt record
-      const { data: receiptData, error: receiptError } = await supabase
-        .from('receipts')
-        .insert([
-          {
-            store_id: selectedStore || null,
-            total_amount: extractedItems.reduce((sum, item) => sum + item.price, 0),
-            user_id: user.id,
-            purchase_date: new Date().toISOString()
-          }
-        ])
-        .select();
-      
-      if (receiptError) throw receiptError;
-      
-      if (receiptData && receiptData.length > 0) {
-        const receiptId = receiptData[0].id;
+      // Map generated items to the format expected by the ingredients table
+      const generatedIngredients = generatedItems.map(item => {
+        const expiryDate = new Date();
+        expiryDate.setDate(expiryDate.getDate() + 14); // Default 14 days expiry
         
-        // Then, create receipt items
-        const receiptItems = extractedItems.map(item => ({
-          receipt_id: receiptId,
+        return {
           name: item.name,
           quantity: item.quantity,
           unit: item.unit,
-          price: item.price
-        }));
-        
-        const { error: itemsError } = await supabase
-          .from('receipt_items')
-          .insert(receiptItems);
-        
-        if (itemsError) throw itemsError;
-        
-        // Finally, add items to ingredients
-        const ingredients = extractedItems.map(item => {
-          // Calculate expiry date (example: 7 days from now)
-          const expiryDate = new Date();
-          expiryDate.setDate(expiryDate.getDate() + 7);
-          
-          return {
-            name: item.name,
-            quantity: item.quantity,
-            unit: item.unit,
-            expiry_date: expiryDate.toISOString().split('T')[0],
-            category: getCategoryForItem(item.name),
-            user_id: user.id
-          };
-        });
-        
-        const { error: ingredientsError } = await supabase
-          .from('ingredients')
-          .insert(ingredients);
-        
-        if (ingredientsError) throw ingredientsError;
-        
-        toast.success("Items added to your ingredients list!");
-        
-        // Use setTimeout with a promise to ensure we complete before navigating
-        await new Promise(resolve => {
-          setTimeout(() => {
-            setSavingIngredients(false);
-            resolve(true);
-            navigate('/ingredients');
-          }, 1500);
-        });
-      }
-    } catch (error) {
-      console.error('Error saving to ingredients:', error);
-      toast.error("Failed to save items");
-      setSavingIngredients(false);
-    }
-  };
+          expiry_date: expiryDate.toISOString().split('T')[0],
+          category: getCategoryForItem(item.name),
+          user_id: user.id,
+          product_id: item.id
+        };
+      });
 
-  // Manual entry handling
-  const addManualItem = async (item: ManualItem) => {
-    try {
-      if (!item.name || !item.expiryDate || !user) {
-        toast.error("Please fill all fields");
-        return;
-      }
+      // Map manual items to the same format
+      const mappedManualItems = manualItems.map(item => ({
+        name: item.name,
+        quantity: item.quantity,
+        unit: item.unit,
+        expiry_date: item.expiryDate,
+        category: getCategoryForItem(item.name),
+        user_id: user.id
+      }));
 
+      // Combine both arrays
+      const allIngredients = [...generatedIngredients, ...mappedManualItems];
+
+      // Insert into Supabase
       const { error } = await supabase
         .from('ingredients')
-        .insert([
-          {
-            name: item.name,
-            quantity: item.quantity,
-            unit: item.unit,
-            expiry_date: item.expiryDate,
-            category: getCategoryForItem(item.name),
-            user_id: user.id
-          }
-        ]);
+        .insert(allIngredients);
 
       if (error) throw error;
 
-      toast.success("Item added successfully!");
+      toast.success("Items saved to ingredients");
+      
+      // Add a short delay before navigating
+      setTimeout(() => {
+        setIsSaving(false);
+        navigate('/ingredients');
+      }, 500);
     } catch (error) {
-      console.error('Error adding manual item:', error);
-      toast.error("Failed to add item");
+      console.error('Error saving ingredients:', error);
+      toast.error("Failed to save ingredients");
+      setIsSaving(false);
     }
   };
 
@@ -287,47 +231,55 @@ const ReceiptPage = () => {
     <Layout>
       <div className="space-y-6 animate-fade-in">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Upload Receipt</h1>
-          <p className="text-gray-600 mt-1">Scan or upload your grocery receipt to add items to your inventory</p>
+          <h1 className="text-2xl font-bold text-gray-900">Upload Food Image</h1>
+          <p className="text-gray-600 mt-1">Upload any food image to generate ingredients for your inventory</p>
         </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <ReceiptUploadCard
+          <ImageUploader
             file={file}
             preview={preview}
-            isProcessing={isProcessing}
-            isProcessed={isProcessed}
-            stores={stores}
-            selectedStore={selectedStore}
-            showNewStoreInput={showNewStoreInput}
-            newStoreName={newStoreName}
-            newStoreAddress={newStoreAddress}
+            isLoading={isLoading}
             onFileChange={handleFileChange}
             onDragOver={handleDragOver}
             onDrop={handleDrop}
-            onTriggerFileInput={triggerFileInput}
-            onCancelProcessing={cancelProcessing}
-            onProcessReceipt={processReceipt}
-            onSetSelectedStore={setSelectedStore}
-            onSetShowNewStoreInput={setShowNewStoreInput}
-            onSetNewStoreName={setNewStoreName}
-            onSetNewStoreAddress={setNewStoreAddress}
-            onSaveNewStore={saveNewStore}
+            onReset={resetUpload}
+            onGenerate={generateItems}
           />
           
-          <ExtractedItemsCard
-            isProcessing={isProcessing}
-            extractedItems={extractedItems}
-            isSavingIngredients={isSavingIngredients}
-            user={user}
-            onSaveToIngredients={saveToIngredients}
+          <GeneratedItemsTable
+            generatedItems={generatedItems}
+            isLoading={isLoading}
+            onUpdateItem={updateGeneratedItem}
           />
         </div>
         
-        <ManualEntryCard 
-          user={user}
-          onAddManualItem={addManualItem}
+        <ManualItemForm 
+          onAddItem={addManualItem}
+          manualItems={manualItems}
+          onRemoveItem={removeManualItem}
         />
+        
+        <div className="flex justify-end">
+          <Button
+            onClick={saveToIngredients}
+            disabled={generatedItems.length === 0 && manualItems.length === 0 || isSaving || !user}
+            className="bg-fridge-blue hover:bg-fridge-blue-light"
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Check className="h-4 w-4 mr-2" />
+                Save to Ingredients
+                <ArrowRight className="h-4 w-4 ml-2" />
+              </>
+            )}
+          </Button>
+        </div>
       </div>
     </Layout>
   );

@@ -7,11 +7,20 @@ export interface Store {
   created_at?: string;
 }
 
-export interface ReceiptItem {
+export interface Product {
+  id: string;
+  name: string;
+  price: number;
+  category?: string;
+  unit: string;
+}
+
+export interface GeneratedItem {
+  id: string;
   name: string;
   quantity: number;
   unit: string;
-  price: number;
+  isEdited?: boolean;
 }
 
 export interface ManualItem {
