@@ -1,3 +1,4 @@
+
 import React from 'react';
 import {
   BrowserRouter as Router,
@@ -8,7 +9,7 @@ import {
   QueryClient,
   QueryClientProvider,
 } from '@tanstack/react-query'
-import { ThemeProvider } from "@/components/theme-provider"
+import { ThemeProvider } from "./components/theme-provider"
 import { Toaster } from "@/components/ui/toaster"
 
 import WelcomePage from '@/pages/WelcomePage';
@@ -33,9 +34,8 @@ import GenerateRecipePage from '@/pages/GenerateRecipePage';
 const queryClient = new QueryClient()
 
 function App() {
-
   return (
-    <ThemeProvider>
+    <ThemeProvider defaultTheme="system" enableSystem>
       <QueryClientProvider client={queryClient}>
         <Router>
           <Routes>
