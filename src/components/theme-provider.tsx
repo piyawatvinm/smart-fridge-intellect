@@ -4,6 +4,9 @@
 import * as React from "react"
 import { ThemeProvider as NextThemesProvider } from "next-themes"
 
+// Define enum for possible attribute values
+type Attribute = 'class' | 'data-theme' | 'data-mode';
+
 // Define our own interface for theme provider props based on next-themes documentation
 interface ThemeProviderProps {
   defaultTheme?: string
@@ -12,7 +15,7 @@ interface ThemeProviderProps {
   disableTransitionOnChange?: boolean
   enableColorScheme?: boolean
   forcedTheme?: string
-  attribute?: string | string[]
+  attribute?: Attribute | Attribute[]
 }
 
 export function ThemeProvider({
