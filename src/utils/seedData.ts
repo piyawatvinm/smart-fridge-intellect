@@ -337,13 +337,15 @@ export const initializeIngredients = async (userId: string) => {
     
     // Create ingredients from the products, prioritizing those needed for recipes
     const ingredientsToInsert = [];
-    const productsByName = {};
+    const productsByName: Record<string, any> = {};
     
     // Index products by name for easier lookup
     products.forEach(product => {
-      const lowerName = product.name.toLowerCase();
+      // Fix: Add type assertion for product
+      const typedProduct = product as { name: string; id: string; category: string; unit: string };
+      const lowerName = typedProduct.name.toLowerCase();
       if (!productsByName[lowerName]) {
-        productsByName[lowerName] = product;
+        productsByName[lowerName] = typedProduct;
       }
     });
     
@@ -351,10 +353,17 @@ export const initializeIngredients = async (userId: string) => {
     neededIngredients.forEach(ingredientName => {
       const lowerName = ingredientName.toString().toLowerCase();
       const matchingProduct = productsByName[lowerName] || 
-                             products.find(p => p.name.toLowerCase().includes(lowerName) || 
-                                              lowerName.includes(p.name.toLowerCase()));
+                             products.find(p => {
+                               // Fix: Add type assertion for p
+                               const typedP = p as { name: string; id: string; category: string; unit: string };
+                               return typedP.name.toLowerCase().includes(lowerName) || 
+                                      lowerName.includes(typedP.name.toLowerCase());
+                             });
       
       if (matchingProduct) {
+        // Fix: Add type assertion for matchingProduct
+        const typedMatchingProduct = matchingProduct as { name: string; id: string; category: string; unit: string };
+        
         // Random expiry date between 10 and 60 days from now (ensure they don't expire soon)
         const daysToExpiry = Math.floor(Math.random() * 50) + 10;
         const expiryDate = new Date();
@@ -363,11 +372,11 @@ export const initializeIngredients = async (userId: string) => {
         ingredientsToInsert.push({
           name: ingredientName.toString(),
           quantity: Math.floor(Math.random() * 3) + 2, // 2-4 units (ensure enough quantity)
-          unit: matchingProduct.unit || 'unit',
-          category: matchingProduct.category,
+          unit: typedMatchingProduct.unit || 'unit',
+          category: typedMatchingProduct.category,
           expiry_date: expiryDate.toISOString().split('T')[0],
           user_id: userId,
-          product_id: matchingProduct.id
+          product_id: typedMatchingProduct.id
         });
         
         // Remove this product from consideration to avoid duplicates
@@ -382,19 +391,22 @@ export const initializeIngredients = async (userId: string) => {
       const selectedProducts = remainingProducts.slice(0, additionalCount);
       
       selectedProducts.forEach(product => {
+        // Fix: Add type assertion for product
+        const typedProduct = product as { name: string; id: string; category: string; unit: string };
+        
         // Random expiry date between 3 and 30 days from now
         const daysToExpiry = Math.floor(Math.random() * 27) + 3;
         const expiryDate = new Date();
         expiryDate.setDate(expiryDate.getDate() + daysToExpiry);
         
         ingredientsToInsert.push({
-          name: product.name,
+          name: typedProduct.name,
           quantity: Math.floor(Math.random() * 5) + 1, // 1-5 units
-          unit: product.unit,
-          category: product.category,
+          unit: typedProduct.unit,
+          category: typedProduct.category,
           expiry_date: expiryDate.toISOString().split('T')[0],
           user_id: userId,
-          product_id: product.id
+          product_id: typedProduct.id
         });
       });
     }
