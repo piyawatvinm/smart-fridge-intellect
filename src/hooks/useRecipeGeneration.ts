@@ -4,6 +4,7 @@ import { useGemini } from '@/hooks/use-gemini';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
 import { addToCart, createProductIfNotExists } from '@/lib/supabaseHelpers';
+import { useRecipeImages } from '@/hooks/useRecipeImages';
 
 export interface IngredientItem {
   id: string;
@@ -29,6 +30,7 @@ export interface Recipe {
   instructions: string[];
   cookingTime?: string;
   difficulty?: string;
+  imageUrl?: string; // Add imageUrl property for storing the recipe image
 }
 
 export const useRecipeGeneration = (userId?: string) => {
@@ -39,6 +41,7 @@ export const useRecipeGeneration = (userId?: string) => {
   const [generatingRecipes, setGeneratingRecipes] = useState(false);
   const [addingToCart, setAddingToCart] = useState(false);
   const { generateContent } = useGemini();
+  const { fetchImageForRecipe } = useRecipeImages();
 
   // Fetch user's actual ingredients from Supabase
   const loadUserIngredients = async () => {
@@ -124,6 +127,23 @@ Make sure to ONLY include ingredients from my list in the "Available Ingredients
       const sortedRecipes = recipesWithIds.sort((a, b) => b.matchScore - a.matchScore);
       
       setGeneratedRecipes(sortedRecipes);
+      
+      // Fetch images for recipes
+      for (const recipe of sortedRecipes) {
+        if (recipe.id) {
+          try {
+            const imageUrl = await fetchImageForRecipe(recipe.id, recipe.name);
+            if (imageUrl) {
+              // Update recipe with image URL
+              setGeneratedRecipes(prev => 
+                prev.map(r => r.id === recipe.id ? { ...r, imageUrl } : r)
+              );
+            }
+          } catch (error) {
+            console.error(`Failed to fetch image for recipe ${recipe.name}:`, error);
+          }
+        }
+      }
     } catch (err) {
       console.error('Error generating recipes:', err);
       toast({

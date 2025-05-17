@@ -6,7 +6,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 const fetchOptions = {
   method: "GET",
   headers: {
-    Authorization: Deno.env.get("PEXELS_API_KEY") ?? ""
+    Authorization: Deno.env.get("PEXELS_API_KEY") ?? "5G3aNU76uY1nJZjS3w9gRjZjUQ77GQceRSu6bj93ZYVm0kdzKWFxIc4e" // Use env var with fallback to provided key
   }
 };
 

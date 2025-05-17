@@ -45,8 +45,9 @@ serve(async (req) => {
     // Encode the recipe title for the URL
     const query = encodeURIComponent(recipeTitle);
     
-    // Fetch image from Pexels API
-    const pexelsApiKey = Deno.env.get("PEXELS_API_KEY") ?? "";
+    // Fetch image from Pexels API - use env var with fallback to provided key
+    const pexelsApiKey = Deno.env.get("PEXELS_API_KEY") ?? "5G3aNU76uY1nJZjS3w9gRjZjUQ77GQceRSu6bj93ZYVm0kdzKWFxIc4e";
+    
     const response = await fetch(
       `https://api.pexels.com/v1/search?query=${query}&per_page=1`,
       {
