@@ -17,8 +17,7 @@ const Index = () => {
     initData();
   }, []);
   
-  // Changed from /products to /ai-recipes to showcase our new feature
-  return <Navigate to="/ai-recipes" replace />;
+  return <Navigate to="/products" replace />;
 };
 
 export default Index;

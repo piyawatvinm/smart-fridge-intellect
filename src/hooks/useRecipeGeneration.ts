@@ -89,8 +89,8 @@ export const useRecipeGeneration = (userId?: string) => {
         `${ing.name} (${ing.quantity} ${ing.unit})`
       ).join('\n');
 
-      // Create prompt for Gemini with Thai food focus
-      const prompt = `Here are my current ingredients:\n${ingredientsList}\n\nSuggest 5 recipes with a focus on Thai cuisine if possible, sorted by how many of my ingredients they use. For each recipe, return in this exact format:
+      // Create prompt for Gemini
+      const prompt = `Here are my current ingredients:\n${ingredientsList}\n\nSuggest 5 recipes sorted by how many of my ingredients they use. For each recipe, return in this exact format:
       
 RECIPE:
 Title: [recipe name]
@@ -264,12 +264,8 @@ Make sure to ONLY include ingredients from my list in the "Available Ingredients
   };
 
   // Add missing ingredients to cart
-  const addMissingIngredientsToCart = async (recipeIndex: number, sourceType: 'generated' = 'generated') => {
-    if (!userId) {
-      return;
-    }
-
-    if (recipeIndex >= generatedRecipes.length) {
+  const addMissingIngredientsToCart = async (recipeIndex: number) => {
+    if (!userId || recipeIndex >= generatedRecipes.length) {
       return;
     }
 
@@ -283,36 +279,18 @@ Make sure to ONLY include ingredients from my list in the "Available Ingredients
       for (const ingredient of recipe.missingIngredients) {
         try {
           // Normalize the ingredient name
-          const normalizedName = ingredient.name.trim();
-          const normalizedNameLower = normalizedName.toLowerCase();
+          const normalizedName = ingredient.name.trim().toLowerCase();
           
-          // Check if product with similar name exists
-          const { data: existingProducts } = await supabase
-            .from('products')
-            .select('id, name')
-            .ilike('name', normalizedNameLower);
-            
-          let productId: string | null = null;
+          // Create the product if it doesn't exist
+          const product = await createProductIfNotExists(
+            normalizedName,
+            userId,
+            ingredient.unit || 'pcs'
+          );
           
-          if (existingProducts && existingProducts.length > 0) {
-            // Use existing product (preserve original capitalization)
-            productId = existingProducts[0].id;
-          } else {
-            // Create the product if it doesn't exist
-            const product = await createProductIfNotExists(
-              normalizedName, // Keep original capitalization for display
-              userId,
-              ingredient.unit || 'pcs'
-            );
-            
-            if (product) {
-              productId = product.id;
-            }
-          }
-          
-          if (productId) {
+          if (product) {
             // Add product to cart
-            await addToCart(userId, productId);
+            await addToCart(userId, product.id);
             addedCount++;
           }
         } catch (error) {
