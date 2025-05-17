@@ -1,5 +1,6 @@
 
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const QuickActions: React.FC = () => {
@@ -10,8 +11,8 @@ export const QuickActions: React.FC = () => {
       </CardHeader>
       <CardContent>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <a
-            href="/ingredients"
+          <Link
+            to="/ingredients"
             className="flex flex-col items-center p-4 border rounded-lg hover:bg-gray-50 transition-colors"
           >
             <img
@@ -20,10 +21,10 @@ export const QuickActions: React.FC = () => {
               className="w-12 h-12 object-contain mb-2"
             />
             <span className="text-sm font-medium">Manage Ingredients</span>
-          </a>
+          </Link>
           
-          <a
-            href="/recommendations"
+          <Link
+            to="/recommendations"
             className="flex flex-col items-center p-4 border rounded-lg hover:bg-gray-50 transition-colors"
           >
             <img
@@ -32,10 +33,10 @@ export const QuickActions: React.FC = () => {
               className="w-12 h-12 object-contain mb-2"
             />
             <span className="text-sm font-medium">Recipe Recommendations</span>
-          </a>
+          </Link>
           
-          <a
-            href="/products"
+          <Link
+            to="/products"
             className="flex flex-col items-center p-4 border rounded-lg hover:bg-gray-50 transition-colors"
           >
             <img
@@ -44,10 +45,10 @@ export const QuickActions: React.FC = () => {
               className="w-12 h-12 object-contain mb-2"
             />
             <span className="text-sm font-medium">Browse Products</span>
-          </a>
+          </Link>
           
-          <a
-            href="/my-orders"
+          <Link
+            to="/my-orders"
             className="flex flex-col items-center p-4 border rounded-lg hover:bg-gray-50 transition-colors"
           >
             <img
@@ -56,7 +57,7 @@ export const QuickActions: React.FC = () => {
               className="w-12 h-12 object-contain mb-2"
             />
             <span className="text-sm font-medium">My Orders</span>
-          </a>
+          </Link>
         </div>
       </CardContent>
     </Card>
