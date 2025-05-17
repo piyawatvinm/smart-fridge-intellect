@@ -20,6 +20,7 @@ export const useProducts = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all-categories');
   const [selectedStore, setSelectedStore] = useState<string>('all-stores');
+  const [productsByIngredient, setProductsByIngredient] = useState<Record<string, Product[]>>({});
 
   const loadProducts = async () => {
     setLoading(true);
@@ -86,6 +87,74 @@ export const useProducts = () => {
       setLoading(false);
     }
   };
+  
+  // New function to get products by ingredient name
+  const getProductsForIngredients = async (ingredientNames: string[]) => {
+    setLoading(true);
+    try {
+      // Create a map to store products by ingredient name
+      const productMap: Record<string, Product[]> = {};
+      
+      // For each ingredient, find matching products
+      for (const ingredientName of ingredientNames) {
+        // Create search terms based on the ingredient name
+        // For example, "Fresh Basil" becomes "%basil%" and "%fresh%"
+        const searchTerms = ingredientName
+          .split(' ')
+          .filter(term => term.length > 2) // Only terms with length > 2
+          .map(term => `%${term.toLowerCase()}%`);
+          
+        if (searchTerms.length === 0) continue;
+        
+        // Build query to find products that match the ingredient
+        let query = supabase
+          .from('products')
+          .select(`
+            *,
+            store:store_id (
+              id,
+              name,
+              address,
+              logo_url,
+              location
+            )
+          `);
+          
+        // Add search conditions
+        query = searchTerms.reduce((q, term, index) => {
+          return index === 0 
+            ? q.ilike('name', term)
+            : q.or(`name.ilike.${term}`);
+        }, query);
+        
+        // Execute query and get results
+        const { data, error } = await query;
+        
+        if (error) {
+          console.error(`Error fetching products for '${ingredientName}':`, error);
+          continue;
+        }
+        
+        // Enhance products with store information
+        const matchingProducts = data.map(product => ({
+          ...product,
+          store_id: product.store_id || null
+        }));
+        
+        // Store in the map
+        productMap[ingredientName] = matchingProducts;
+      }
+      
+      setProductsByIngredient(productMap);
+      return productMap;
+    } catch (error) {
+      console.error('Error loading products for ingredients:', error);
+      toast.error('Failed to load matching products');
+      return {};
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     loadProducts();
@@ -121,6 +190,8 @@ export const useProducts = () => {
     setSelectedCategory,
     selectedStore,
     setSelectedStore,
-    loadProducts
+    loadProducts,
+    getProductsForIngredients,
+    productsByIngredient
   };
 };

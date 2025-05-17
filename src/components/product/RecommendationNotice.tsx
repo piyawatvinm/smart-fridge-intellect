@@ -5,9 +5,15 @@ import { ShoppingCart, List } from 'lucide-react';
 
 interface RecommendationNoticeProps {
   isVisible: boolean;
+  recipeCount?: number;
+  storeCount?: number;
 }
 
-const RecommendationNotice: React.FC<RecommendationNoticeProps> = ({ isVisible }) => {
+const RecommendationNotice: React.FC<RecommendationNoticeProps> = ({ 
+  isVisible, 
+  recipeCount = 0,
+  storeCount = 0 
+}) => {
   if (!isVisible) return null;
 
   return (
@@ -21,7 +27,8 @@ const RecommendationNotice: React.FC<RecommendationNoticeProps> = ({ isVisible }
             Add them to your cart and confirm your order to stock your virtual fridge.
           </p>
           <ul className="list-disc pl-5 space-y-1 text-sm">
-            <li>Products are available from 10 different stores</li>
+            <li>{recipeCount > 0 ? `${recipeCount} recipes available with ingredient matching` : 'Get product suggestions for your recipes'}</li>
+            <li>Products are available from {storeCount > 0 ? storeCount : 'multiple'} different stores</li>
             <li>Compare prices between stores</li>
             <li>Once ordered, items will appear in your ingredients list</li>
           </ul>
