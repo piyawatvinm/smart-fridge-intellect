@@ -30,11 +30,37 @@ export interface ManualItem {
   expiryDate: string;
 }
 
-// Add the missing ReceiptItem type
 export interface ReceiptItem {
   id: string;
   name: string;
   quantity: number;
   price: number;
   unit: string;
+}
+
+// New interface for ingredient variations
+export interface IngredientVariation {
+  baseIngredient: string;
+  variations: string[];
+}
+
+// New interface for recipe ingredients with availability info
+export interface RecipeIngredient {
+  name: string;
+  quantity: number;
+  unit: string;
+  available: boolean;
+}
+
+// New interface for recipes with ingredients and availability
+export interface Recipe {
+  id: string;
+  name: string;
+  description?: string;
+  imageUrl?: string;
+  preparationTime?: string;
+  difficulty?: string;
+  category?: string;
+  ingredients: RecipeIngredient[];
+  missingCount: number;
 }

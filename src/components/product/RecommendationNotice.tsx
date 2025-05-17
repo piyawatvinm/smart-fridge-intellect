@@ -20,6 +20,11 @@ const RecommendationNotice: React.FC<RecommendationNoticeProps> = ({
 }) => {
   if (!isVisible) return null;
 
+  // Calculate match percentage for display
+  const matchPercentage = totalIngredientCount > 0 
+    ? Math.round((availableProductCount / totalIngredientCount) * 100)
+    : 0;
+
   return (
     <div className="mb-6">
       <Alert className="bg-blue-50 border-blue-200">
@@ -34,7 +39,10 @@ const RecommendationNotice: React.FC<RecommendationNoticeProps> = ({
             <li>{recipeCount > 0 ? `${recipeCount} recipes available with ingredient matching` : 'Get product suggestions for your recipes'}</li>
             <li>Products are available from {storeCount > 0 ? storeCount : 'multiple'} different stores</li>
             {availableProductCount > 0 && totalIngredientCount > 0 && (
-              <li><span className="font-medium">{availableProductCount}</span> out of {totalIngredientCount} ingredients have matching products</li>
+              <li>
+                <span className="font-medium">{availableProductCount}</span> out of {totalIngredientCount} ingredients have matching products
+                {matchPercentage > 0 && <span className="ml-1 text-xs">({matchPercentage}% match rate)</span>}
+              </li>
             )}
             <li>Compare prices between stores</li>
             <li>Once ordered, items will appear in your ingredients list</li>
