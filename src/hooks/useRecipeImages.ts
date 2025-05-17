@@ -1,3 +1,4 @@
+
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -20,23 +21,7 @@ export const useRecipeImages = () => {
     }));
     
     try {
-      // First check if we already have the image in Supabase
-      const { data: recipe } = await supabase
-        .from('recipes')
-        .select('image_url')
-        .eq('id', recipeId)
-        .single();
-      
-      // If we have an image URL stored, use that
-      if (recipe?.image_url) {
-        setResults(prev => ({
-          ...prev,
-          [recipeId]: { imageUrl: recipe.image_url, isLoading: false, error: null }
-        }));
-        return recipe.image_url;
-      }
-      
-      // Otherwise, call our edge function to get and store an image
+      // Call our edge function to get and store an image
       const { data, error } = await supabase.functions.invoke('fetch-recipe-images', {
         body: { recipeId, recipeTitle }
       });
