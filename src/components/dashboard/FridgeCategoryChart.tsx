@@ -1,7 +1,8 @@
 
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
+import { Apple, Beef, Bread, Cheese, Coffee, Fish, GrapeIcon, LeafyGreen, Milk, Pizza } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface FridgeCategoryChartProps {
   fridgeStats: {
@@ -13,36 +14,56 @@ interface FridgeCategoryChartProps {
 }
 
 export const FridgeCategoryChart: React.FC<FridgeCategoryChartProps> = ({ fridgeStats }) => {
-  // Define colors for different categories
-  const COLORS = {
-    'Vegetables': '#4ade80', // green
-    'Fruits': '#fb923c',     // orange
-    'Meat': '#f87171',       // red
-    'Dairy': '#60a5fa',      // blue
-    'Grains': '#fcd34d',     // yellow
-    'Herbs': '#a3e635',      // lime
-    'Beverages': '#a78bfa',  // purple
-    'Condiments': '#e879f9', // pink
-    'Snacks': '#fb7185',     // rose
-    'Seafood': '#22d3ee',    // cyan
-    'Other': '#94a3b8',      // gray
+  const navigate = useNavigate();
+
+  // Icons for different food categories
+  const CATEGORY_ICONS: Record<string, React.FC<{ className?: string }>> = {
+    'Vegetables': LeafyGreen,
+    'Fruits': Apple,
+    'Meat': Beef,
+    'Dairy': Milk,
+    'Grains': Bread,
+    'Beverages': Coffee,
+    'Seafood': Fish,
+    'Cheese': Cheese,
+    'Prepared': Pizza,
+    'Fruits & Berries': GrapeIcon,
   };
 
-  const DEFAULT_COLOR = '#94a3b8'; // Default gray for unknown categories
+  // Default icon for unknown categories
+  const DefaultIcon = LeafyGreen;
 
-  // Transform categories data into chart format
-  const categoryData = Object.entries(fridgeStats.categories || {})
-    .map(([name, value]) => ({
-      name,
-      value,
-      color: (COLORS as Record<string, string>)[name] || DEFAULT_COLOR
-    }))
-    .filter(item => item.value > 0);
+  // Transform categories data into sorted array
+  const sortedCategories = Object.entries(fridgeStats.categories || {})
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count);
 
-  // If no categories, show a placeholder
-  if (categoryData.length === 0) {
-    categoryData.push({ name: 'No items', value: 1, color: '#94a3b8' });
-  }
+  // Generate suggestion based on category distribution
+  const generateSuggestion = () => {
+    if (sortedCategories.length === 0) return "Add ingredients to see category breakdown";
+    
+    if (sortedCategories.length === 1) {
+      return `All your fridge items are ${sortedCategories[0].name.toLowerCase()}`;
+    }
+    
+    const mostCommon = sortedCategories[0];
+    const leastCommon = sortedCategories[sortedCategories.length - 1];
+    
+    if (mostCommon.count > fridgeStats.totalIngredients * 0.5) {
+      return `Most of your fridge is ${mostCommon.name.toLowerCase()}`;
+    }
+    
+    if (leastCommon.count === 1) {
+      return `You only have 1 ${leastCommon.name.toLowerCase()} item`;
+    }
+    
+    return `You have a good variety of foods`;
+  };
+
+  const handleCategoryClick = (category: string) => {
+    // Navigate to ingredients page with category filter
+    navigate(`/ingredients?category=${encodeURIComponent(category)}`);
+  };
 
   return (
     <Card className="overflow-hidden">
@@ -50,35 +71,46 @@ export const FridgeCategoryChart: React.FC<FridgeCategoryChartProps> = ({ fridge
         <CardTitle className="text-lg">Food Categories</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="h-60">
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={categoryData}
-                cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={80}
-                paddingAngle={2}
-                dataKey="value"
-              >
-                {categoryData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
-              <Tooltip 
-                formatter={(value) => [`${value} items`, 'Count']}
-                contentStyle={{ borderRadius: '0.375rem', border: '1px solid #e2e8f0' }} 
-              />
-              <Legend 
-                layout="vertical"
-                align="right"
-                verticalAlign="middle"
-                formatter={(value) => <span className="text-xs">{value}</span>}
-              />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
+        {sortedCategories.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <p>No ingredients added yet</p>
+            <p className="text-sm mt-2">Add ingredients to see your food categories</p>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              {sortedCategories.map((category) => {
+                const IconComponent = CATEGORY_ICONS[category.name] || DefaultIcon;
+                const isEmpty = category.count === 0;
+                
+                return (
+                  <div
+                    key={category.name}
+                    className={`flex items-center p-2 rounded-md border cursor-pointer transition-colors ${
+                      isEmpty ? 'opacity-50 bg-gray-50' : 'hover:bg-muted'
+                    }`}
+                    onClick={() => handleCategoryClick(category.name)}
+                  >
+                    <div className={`p-2 rounded-full ${isEmpty ? 'bg-gray-100' : 'bg-primary/10'} mr-3`}>
+                      <IconComponent className={`h-4 w-4 ${isEmpty ? 'text-gray-400' : 'text-primary'}`} />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">{category.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {category.count} {category.count === 1 ? 'item' : 'items'}
+                        {isEmpty && ' (Restock?)'}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            
+            <div className="mt-2 p-3 bg-muted/30 rounded-md">
+              <p className="text-sm text-muted-foreground">{generateSuggestion()}</p>
+            </div>
+          </>
+        )}
       </CardContent>
     </Card>
   );
