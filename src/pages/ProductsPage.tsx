@@ -10,7 +10,7 @@ import { useProducts } from '@/hooks/useProducts';
 import ProductFilters from '@/components/product/ProductFilters';
 import ProductList from '@/components/product/ProductList';
 import RecommendationNotice from '@/components/product/RecommendationNotice';
-import { initializeAppData } from '@/utils/seedData';
+import { supabase } from '@/integrations/supabase/client';
 
 const ProductsPage = () => {
   const { getUser } = useAuth();
@@ -32,18 +32,8 @@ const ProductsPage = () => {
     loadProducts 
   } = useProducts();
 
-  // Initialize app data when page loads
-  useEffect(() => {
-    const initData = async () => {
-      try {
-        await initializeAppData(user?.id || null);
-      } catch (error) {
-        console.error('Error initializing app data:', error);
-      }
-    };
-    
-    initData();
-  }, [user?.id]);
+  // No more automatic initialization of app data when the page loads
+  // We removed the initializeAppData call that was here previously
 
   // Check if coming from recommendations or another source
   useEffect(() => {

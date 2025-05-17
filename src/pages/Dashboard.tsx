@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Layout } from '@/components/LayoutComponents';
 import { 
@@ -13,6 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { AlertTriangle, AlertCircle, Check } from 'lucide-react';
 import { fetchUserIngredients } from '@/lib/supabaseHelpers';
 import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
 
 const Dashboard: React.FC = () => {
   const { getUser } = useAuth();
@@ -25,13 +25,63 @@ const Dashboard: React.FC = () => {
     categories: {}
   });
   const [loading, setLoading] = useState(true);
+  const [dataInitialized, setDataInitialized] = useState(false);
 
-  // Generate mock data when the dashboard loads for the first time
+  // Generate mock data only if no data exists
   useEffect(() => {
     if (!user) return;
     
-    const initializeMockData = async () => {
+    const checkAndInitializeMockData = async () => {
       try {
+        // Check if user already has ingredients
+        const { data: existingIngredients, error: ingredientsError } = await supabase
+          .from('ingredients')
+          .select('id')
+          .eq('user_id', user.id)
+          .limit(1);
+          
+        if (ingredientsError) {
+          console.error('Error checking for existing ingredients:', ingredientsError);
+          return;
+        }
+        
+        // Check if user already has products
+        const { data: existingProducts, error: productsError } = await supabase
+          .from('products')
+          .select('id')
+          .eq('user_id', user.id)
+          .limit(1);
+          
+        if (productsError) {
+          console.error('Error checking for existing products:', productsError);
+          return;
+        }
+        
+        // Check if there are already stores
+        const { data: existingStores, error: storesError } = await supabase
+          .from('stores')
+          .select('id')
+          .limit(1);
+          
+        if (storesError) {
+          console.error('Error checking for existing stores:', storesError);
+          return;
+        }
+
+        // If any data already exists, don't initialize
+        if (
+          (existingIngredients && existingIngredients.length > 0) ||
+          (existingProducts && existingProducts.length > 0) ||
+          (existingStores && existingStores.length > 0)
+        ) {
+          console.log('Data already exists, skipping initialization');
+          setDataInitialized(true);
+          return;
+        }
+        
+        // If no data exists, initialize mock data
+        console.log('No existing data found, generating mock data');
+        
         // Generate stores first
         await generateMockStores(user.id);
         
@@ -45,13 +95,17 @@ const Dashboard: React.FC = () => {
           duration: 5000,
           id: 'mock-data-init'
         });
+
+        setDataInitialized(true);
       } catch (error) {
-        console.error('Error initializing mock data:', error);
+        console.error('Error checking and initializing mock data:', error);
       }
     };
     
-    initializeMockData();
-  }, [user]);
+    if (!dataInitialized) {
+      checkAndInitializeMockData();
+    }
+  }, [user, dataInitialized]);
 
   // Load fridge data
   useEffect(() => {
