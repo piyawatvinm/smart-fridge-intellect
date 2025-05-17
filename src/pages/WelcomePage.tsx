@@ -1,3 +1,4 @@
+
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
@@ -9,7 +10,7 @@ const WelcomePage = () => {
   
   const slides = [
     {
-      title: "Welcome to Smart Fridge",
+      title: "Welcome to ChefMate",
       description: "Keep track of your food items, reduce waste, and discover new recipes",
       buttonText: "Get Started",
       color: "bg-gradient-blue",

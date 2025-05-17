@@ -73,7 +73,8 @@ export const Navbar = () => {
         <div className="flex justify-between h-16">
           <div className="flex items-center">
             <Link to="/dashboard" className="flex-shrink-0 flex items-center">
-              <span className="text-xl font-bold text-fridge-blue">Smart Fridge</span>
+              <ChefHat className="h-6 w-6 mr-2 text-fridge-blue" />
+              <span className="text-xl font-bold text-fridge-blue">ChefMate</span>
             </Link>
           </div>
           
@@ -243,7 +244,7 @@ export const Sidebar = () => {
     { path: '/stores', label: 'Stores', icon: ShoppingBag },
     { path: '/recommendations', label: 'Recommendations', icon: ChefHat },
     { path: '/my-orders', label: 'My Orders', icon: ShoppingCart },
-    { path: '/ai-recipes', label: 'AI Recipes', icon: Sparkles }, // Added new menu item
+    { path: '/ai-recipes', label: 'AI Recipes', icon: Sparkles },
   ]);
   const [categories, setCategories] = useState<string[]>([]);
   const { getUser } = useAuth();
@@ -291,7 +292,8 @@ export const Sidebar = () => {
     <div className="hidden md:flex flex-col h-screen bg-white border-r border-gray-200 w-64 sticky top-0">
       <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
         <div className="flex-shrink-0 px-4 flex items-center">
-          <h1 className="text-xl font-bold text-fridge-blue">Smart Fridge</h1>
+          <ChefHat className="h-6 w-6 mr-2 text-fridge-blue" />
+          <h1 className="text-xl font-bold text-fridge-blue">ChefMate</h1>
         </div>
         <nav className="mt-8 flex-1 px-4 space-y-2">
           {navItems.map((item) => {

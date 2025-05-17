@@ -4,7 +4,7 @@ import React from 'react';
 export const WelcomeCard: React.FC = () => {
   return (
     <div className="bg-white p-6 rounded-lg shadow-sm">
-      <h2 className="text-lg font-medium mb-4">Welcome to Smart Fridge</h2>
+      <h2 className="text-lg font-medium mb-4">Welcome to ChefMate</h2>
       <p className="text-gray-600 mb-4">
         Your intelligent kitchen management system. Keep track of your ingredients,
         get recipe recommendations, and efficiently manage your grocery shopping.
