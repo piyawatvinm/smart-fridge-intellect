@@ -11,6 +11,7 @@ import {
 } from '@tanstack/react-query'
 import { ThemeProvider } from "./components/theme-provider"
 import { Toaster } from "@/components/ui/toaster"
+import { AuthProvider } from '@/components/AuthComponents';
 
 import WelcomePage from '@/pages/WelcomePage';
 import LoginPage from '@/pages/LoginPage';
@@ -38,30 +39,32 @@ function App() {
     <ThemeProvider defaultTheme="system" enableSystem>
       <QueryClientProvider client={queryClient}>
         <Router>
-          <Routes>
-            <Route path="/" element={<WelcomePage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-            
-            <Route element={<ProtectedRoute />}>
-              <Route path="/dashboard" element={<Dashboard />} />
-              <Route path="/ingredients" element={<IngredientsPage />} />
-              <Route path="/shopping-list" element={<ShoppingListPage />} />
-              <Route path="/receipt" element={<ReceiptPage />} />
-              <Route path="/products" element={<ProductsPage />} />
-              <Route path="/recommendations" element={<RecommendationsPage />} />
-              <Route path="/my-orders" element={<MyOrdersPage />} />
-              <Route path="/stores" element={<StoresPage />} />
-              <Route path="/orders" element={<OrdersPage />} />
-              <Route path="/cart" element={<CartPage />} />
+          <AuthProvider>
+            <Routes>
+              <Route path="/" element={<WelcomePage />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
               
-              {/* Add the new generate recipe route */}
-              <Route path="/generate-recipe" element={<GenerateRecipePage />} />
-            </Route>
-            
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-          <Toaster />
+              <Route element={<ProtectedRoute />}>
+                <Route path="/dashboard" element={<Dashboard />} />
+                <Route path="/ingredients" element={<IngredientsPage />} />
+                <Route path="/shopping-list" element={<ShoppingListPage />} />
+                <Route path="/receipt" element={<ReceiptPage />} />
+                <Route path="/products" element={<ProductsPage />} />
+                <Route path="/recommendations" element={<RecommendationsPage />} />
+                <Route path="/my-orders" element={<MyOrdersPage />} />
+                <Route path="/stores" element={<StoresPage />} />
+                <Route path="/orders" element={<OrdersPage />} />
+                <Route path="/cart" element={<CartPage />} />
+                
+                {/* Add the new generate recipe route */}
+                <Route path="/generate-recipe" element={<GenerateRecipePage />} />
+              </Route>
+              
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+            <Toaster />
+          </AuthProvider>
         </Router>
       </QueryClientProvider>
     </ThemeProvider>
