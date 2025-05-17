@@ -1,48 +1,35 @@
 
 import { Layout } from "@/components/LayoutComponents";
-import { useState, useRef, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Camera, Upload, Check, X, Loader2, PlusCircle } from "lucide-react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/components/AuthComponents";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { getCategoryForItem } from "@/lib/supabaseHelpers"; 
-
-interface Store {
-  id: string;
-  name: string;
-  address: string;
-  user_id: string;
-  created_at?: string;
-}
-
-interface ReceiptItem {
-  name: string;
-  quantity: number;
-  unit: string;
-  price: number;
-}
+import { getCategoryForItem } from "@/lib/supabaseHelpers";
+import { Store, ReceiptItem, ManualItem } from "@/types/receipt";
+import { ReceiptUploadCard } from "@/components/receipt/ReceiptUploadCard";
+import { ExtractedItemsCard } from "@/components/receipt/ExtractedItemsCard";
+import { ManualEntryCard } from "@/components/receipt/ManualEntryCard";
 
 const ReceiptPage = () => {
+  // State for receipt upload
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isProcessed, setIsProcessed] = useState(false);
   const [extractedItems, setExtractedItems] = useState<ReceiptItem[]>([]);
+  
+  // State for store selection
   const [stores, setStores] = useState<Store[]>([]);
   const [selectedStore, setSelectedStore] = useState<string>("");
   const [newStoreName, setNewStoreName] = useState<string>("");
   const [newStoreAddress, setNewStoreAddress] = useState<string>("");
   const [showNewStoreInput, setShowNewStoreInput] = useState(false);
-  const [isSavingIngredients, setSavingIngredients] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const navigate = useNavigate();
   
+  // State for saving process
+  const [isSavingIngredients, setSavingIngredients] = useState(false);
+  
+  const navigate = useNavigate();
   const { getUser } = useAuth();
   const user = getUser();
 
@@ -70,6 +57,7 @@ const ReceiptPage = () => {
     fetchStores();
   }, [user]);
 
+  // File handling functions
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
@@ -111,9 +99,10 @@ const ReceiptPage = () => {
   };
 
   const triggerFileInput = () => {
-    fileInputRef.current?.click();
+    // This function is passed to the component
   };
 
+  // Receipt handling functions
   const processReceipt = () => {
     if (!file) return;
     
@@ -137,6 +126,14 @@ const ReceiptPage = () => {
     }, 2000);
   };
 
+  const cancelProcessing = () => {
+    setFile(null);
+    setPreview(null);
+    setIsProcessed(false);
+    setExtractedItems([]);
+  };
+
+  // Store handling functions
   const saveNewStore = async () => {
     try {
       if (!newStoreName || !newStoreAddress || !user) {
@@ -173,6 +170,7 @@ const ReceiptPage = () => {
     }
   };
 
+  // Save to ingredients functions
   const saveToIngredients = async () => {
     try {
       if (extractedItems.length === 0 || !user) {
@@ -255,39 +253,10 @@ const ReceiptPage = () => {
     }
   };
 
-  const cancelProcessing = () => {
-    setFile(null);
-    setPreview(null);
-    setIsProcessed(false);
-    setExtractedItems([]);
-  };
-
-  // Manual entry state
-  const [manualItem, setManualItem] = useState({
-    name: '',
-    quantity: 1,
-    unit: 'piece',
-    expiryDate: ''
-  });
-
-  const handleManualItemChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { id, value } = e.target;
-    setManualItem({
-      ...manualItem,
-      [id]: value
-    });
-  };
-
-  const handleUnitChange = (value: string) => {
-    setManualItem({
-      ...manualItem,
-      unit: value
-    });
-  };
-
-  const addManualItem = async () => {
+  // Manual entry handling
+  const addManualItem = async (item: ManualItem) => {
     try {
-      if (!manualItem.name || !manualItem.expiryDate || !user) {
+      if (!item.name || !item.expiryDate || !user) {
         toast.error("Please fill all fields");
         return;
       }
@@ -296,11 +265,11 @@ const ReceiptPage = () => {
         .from('ingredients')
         .insert([
           {
-            name: manualItem.name,
-            quantity: manualItem.quantity,
-            unit: manualItem.unit,
-            expiry_date: manualItem.expiryDate,
-            category: getCategoryForItem(manualItem.name),
+            name: item.name,
+            quantity: item.quantity,
+            unit: item.unit,
+            expiry_date: item.expiryDate,
+            category: getCategoryForItem(item.name),
             user_id: user.id
           }
         ]);
@@ -308,13 +277,6 @@ const ReceiptPage = () => {
       if (error) throw error;
 
       toast.success("Item added successfully!");
-      setManualItem({
-        name: '',
-        quantity: 1,
-        unit: 'piece',
-        expiryDate: ''
-      });
-
     } catch (error) {
       console.error('Error adding manual item:', error);
       toast.error("Failed to add item");
@@ -330,278 +292,42 @@ const ReceiptPage = () => {
         </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Upload Receipt</CardTitle>
-              <CardDescription>
-                Upload a photo of your receipt to automatically add items to your inventory
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div
-                className={`border-2 border-dashed rounded-lg p-6 flex flex-col items-center justify-center text-center h-64 ${
-                  !preview ? "border-gray-300 bg-gray-50" : "border-transparent"
-                }`}
-                onDragOver={handleDragOver}
-                onDrop={handleDrop}
-              >
-                {preview ? (
-                  <div className="relative w-full h-full">
-                    <img
-                      src={preview}
-                      alt="Receipt preview"
-                      className="w-full h-full object-contain"
-                    />
-                    <button
-                      onClick={cancelProcessing}
-                      className="absolute top-2 right-2 bg-white rounded-full p-1 shadow-md"
-                    >
-                      <X className="h-5 w-5 text-gray-600" />
-                    </button>
-                  </div>
-                ) : (
-                  <>
-                    <div className="mb-4">
-                      <Upload className="h-12 w-12 text-gray-400 mx-auto" />
-                    </div>
-                    <p className="text-gray-600 mb-2">
-                      Drag and drop your receipt image here
-                    </p>
-                    <p className="text-gray-500 text-sm mb-4">
-                      or click to browse for a file
-                    </p>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={triggerFileInput}
-                    >
-                      Browse Files
-                    </Button>
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      className="hidden"
-                      accept="image/*"
-                      onChange={handleFileChange}
-                    />
-                  </>
-                )}
-              </div>
-              
-              {isProcessed && (
-                <div className="mt-4">
-                  <Label htmlFor="store">Select Store</Label>
-                  <div className="flex items-center gap-2 mt-2">
-                    {showNewStoreInput ? (
-                      <div className="flex-1 flex flex-col gap-2">
-                        <Input 
-                          placeholder="Enter store name" 
-                          value={newStoreName} 
-                          onChange={(e) => setNewStoreName(e.target.value)} 
-                        />
-                        <Input 
-                          placeholder="Enter store address" 
-                          value={newStoreAddress} 
-                          onChange={(e) => setNewStoreAddress(e.target.value)} 
-                        />
-                        <div className="flex gap-2">
-                          <Button onClick={saveNewStore}>Save</Button>
-                          <Button variant="outline" onClick={() => setShowNewStoreInput(false)}>
-                            Cancel
-                          </Button>
-                        </div>
-                      </div>
-                    ) : (
-                      <>
-                        <Select value={selectedStore} onValueChange={setSelectedStore}>
-                          <SelectTrigger className="flex-1">
-                            <SelectValue placeholder="Select store" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {stores.map((store) => (
-                              <SelectItem key={store.id} value={store.id}>{store.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <Button 
-                          variant="outline" 
-                          size="icon"
-                          onClick={() => setShowNewStoreInput(true)}
-                        >
-                          <PlusCircle className="h-5 w-5" />
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
-            </CardContent>
-            <CardFooter className="flex justify-between">
-              <Button
-                variant="outline"
-                onClick={cancelProcessing}
-                disabled={!file || isProcessing}
-              >
-                Cancel
-              </Button>
-              <div className="flex space-x-2">
-                <Button
-                  onClick={triggerFileInput}
-                  variant="outline"
-                  disabled={isProcessing}
-                >
-                  <Camera className="h-4 w-4 mr-2" />
-                  New Photo
-                </Button>
-                <Button
-                  onClick={processReceipt}
-                  disabled={!file || isProcessing || isProcessed}
-                  className="bg-fridge-blue hover:bg-fridge-blue-light"
-                >
-                  {isProcessing ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Processing...
-                    </>
-                  ) : isProcessed ? (
-                    <>
-                      <Check className="h-4 w-4 mr-2" />
-                      Processed
-                    </>
-                  ) : (
-                    "Process Receipt"
-                  )}
-                </Button>
-              </div>
-            </CardFooter>
-          </Card>
+          <ReceiptUploadCard
+            file={file}
+            preview={preview}
+            isProcessing={isProcessing}
+            isProcessed={isProcessed}
+            stores={stores}
+            selectedStore={selectedStore}
+            showNewStoreInput={showNewStoreInput}
+            newStoreName={newStoreName}
+            newStoreAddress={newStoreAddress}
+            onFileChange={handleFileChange}
+            onDragOver={handleDragOver}
+            onDrop={handleDrop}
+            onTriggerFileInput={triggerFileInput}
+            onCancelProcessing={cancelProcessing}
+            onProcessReceipt={processReceipt}
+            onSetSelectedStore={setSelectedStore}
+            onSetShowNewStoreInput={setShowNewStoreInput}
+            onSetNewStoreName={setNewStoreName}
+            onSetNewStoreAddress={setNewStoreAddress}
+            onSaveNewStore={saveNewStore}
+          />
           
-          <Card>
-            <CardHeader>
-              <CardTitle>Extracted Items</CardTitle>
-              <CardDescription>
-                Review the items extracted from your receipt
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {isProcessing ? (
-                <div className="h-64 flex flex-col items-center justify-center">
-                  <Loader2 className="h-8 w-8 text-fridge-blue animate-spin mb-4" />
-                  <p className="text-gray-600">Analyzing your receipt...</p>
-                  <p className="text-gray-500 text-sm mt-2">This may take a moment</p>
-                </div>
-              ) : extractedItems.length > 0 ? (
-                <div className="space-y-4">
-                  {extractedItems.map((item, index) => (
-                    <div key={index} className="flex items-center justify-between p-3 border rounded-md">
-                      <div>
-                        <h3 className="font-medium">{item.name}</h3>
-                        <p className="text-sm text-gray-500">Qty: {item.quantity} {item.unit}</p>
-                      </div>
-                      <p className="font-medium">${item.price.toFixed(2)}</p>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="h-64 flex flex-col items-center justify-center text-center">
-                  <p className="text-gray-600">No items have been extracted yet</p>
-                  <p className="text-gray-500 text-sm mt-2">
-                    Upload and process a receipt to see extracted items
-                  </p>
-                </div>
-              )}
-            </CardContent>
-            <CardFooter className="flex justify-end">
-              <Button
-                onClick={saveToIngredients}
-                disabled={extractedItems.length === 0 || isProcessing || isSavingIngredients || !user}
-                className="bg-fridge-blue hover:bg-fridge-blue-light"
-              >
-                {isSavingIngredients ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Check className="h-4 w-4 mr-2" />
-                    Add to Ingredients
-                  </>
-                )}
-              </Button>
-            </CardFooter>
-          </Card>
+          <ExtractedItemsCard
+            isProcessing={isProcessing}
+            extractedItems={extractedItems}
+            isSavingIngredients={isSavingIngredients}
+            user={user}
+            onSaveToIngredients={saveToIngredients}
+          />
         </div>
         
-        <Card>
-          <CardHeader>
-            <CardTitle>Manual Entry</CardTitle>
-            <CardDescription>
-              You can also add items manually if you don't have a receipt
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); addManualItem(); }}>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Item Name</Label>
-                  <Input 
-                    id="name" 
-                    placeholder="e.g., Milk" 
-                    value={manualItem.name}
-                    onChange={handleManualItemChange}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="quantity">Quantity</Label>
-                  <Input 
-                    id="quantity" 
-                    type="number" 
-                    min="1" 
-                    value={manualItem.quantity}
-                    onChange={handleManualItemChange}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="unit">Unit</Label>
-                  <Select value={manualItem.unit} onValueChange={handleUnitChange}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="piece">Piece</SelectItem>
-                      <SelectItem value="kg">Kg</SelectItem>
-                      <SelectItem value="g">Gram</SelectItem>
-                      <SelectItem value="l">Liter</SelectItem>
-                      <SelectItem value="ml">ml</SelectItem>
-                      <SelectItem value="pack">Pack</SelectItem>
-                      <SelectItem value="carton">Carton</SelectItem>
-                      <SelectItem value="bottle">Bottle</SelectItem>
-                      <SelectItem value="box">Box</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="expiryDate">Expiry Date</Label>
-                <Input 
-                  id="expiryDate" 
-                  type="date" 
-                  value={manualItem.expiryDate}
-                  onChange={handleManualItemChange}
-                />
-              </div>
-              
-              <Button 
-                type="submit" 
-                className="bg-fridge-blue hover:bg-fridge-blue-light"
-                disabled={!user}
-              >
-                Add Item
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+        <ManualEntryCard 
+          user={user}
+          onAddManualItem={addManualItem}
+        />
       </div>
     </Layout>
   );
