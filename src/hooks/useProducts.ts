@@ -155,6 +155,25 @@ export const useProducts = () => {
       setLoading(false);
     }
   };
+  
+  // New function to count available products for recipe ingredients
+  const countAvailableProductsForIngredients = (ingredientNames: string[]): number => {
+    let count = 0;
+    
+    // Check which ingredients have matching products
+    for (const ingredientName of ingredientNames) {
+      if (productsByIngredient[ingredientName]?.length > 0) {
+        count++;
+      }
+    }
+    
+    return count;
+  };
+  
+  // Get ingredient names from products by ingredient map
+  const getMatchedIngredientNames = (): string[] => {
+    return Object.keys(productsByIngredient);
+  };
 
   useEffect(() => {
     loadProducts();
@@ -192,6 +211,9 @@ export const useProducts = () => {
     setSelectedStore,
     loadProducts,
     getProductsForIngredients,
-    productsByIngredient
+    productsByIngredient,
+    countAvailableProductsForIngredients,
+    getMatchedIngredientNames
   };
 };
+
