@@ -11,24 +11,21 @@ import { useRecipeGeneration } from '@/hooks/useRecipeGeneration';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 export default function AIRecipesPage() {
-  const { session } = useAuth();
-  const userId = session?.user?.id;
+  const auth = useAuth();
+  const userId = auth.user?.id;
   
   const {
     userIngredients,
     generatedRecipes,
-    savedRecipes,
     loadUserIngredients,
     generateRecipes,
     generatingRecipes,
     loadingIngredients,
     addMissingIngredientsToCart,
-    loadingSavedRecipes,
     addingToCart
   } = useRecipeGeneration(userId);
   
   const [expandedRecipeIndex, setExpandedRecipeIndex] = useState<number | null>(null);
-  const [activeTab, setActiveTab] = useState('ai-recipes');
 
   const toggleRecipeExpand = (index: number) => {
     setExpandedRecipeIndex(expandedRecipeIndex === index ? null : index);
@@ -38,7 +35,7 @@ export default function AIRecipesPage() {
     <Layout>
       <div className="container mx-auto py-6 space-y-8">
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold">Recipe Recommendations</h1>
+          <h1 className="text-3xl font-bold">AI Recipe Recommendations</h1>
           <div className="flex gap-2">
             <Button 
               variant="outline" 
@@ -60,77 +57,37 @@ export default function AIRecipesPage() {
           </div>
         </div>
 
-        <Tabs defaultValue="ai-recipes" value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full max-w-md grid-cols-2">
-            <TabsTrigger value="ai-recipes">AI Generated Recipes</TabsTrigger>
-            <TabsTrigger value="thai-recipes">Thai Recipes</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="ai-recipes" className="space-y-4 mt-4">
-            {generatingRecipes ? (
-              <div className="flex flex-col items-center justify-center p-12">
-                <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-                <p className="text-lg">Generating recipe recommendations based on your ingredients...</p>
-              </div>
-            ) : generatedRecipes.length === 0 ? (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center p-12">
-                  <p className="text-lg text-center mb-4">No AI recipes generated yet. Click the button above to generate recipes based on your ingredients.</p>
-                  {userIngredients.length === 0 && (
-                    <p className="text-sm text-muted-foreground text-center">You need to add ingredients first. Go to the Ingredients page.</p>
-                  )}
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {generatedRecipes.map((recipe, index) => (
-                  <RecipeCard 
-                    key={`ai-${index}`}
-                    recipe={recipe}
-                    index={index}
-                    isExpanded={expandedRecipeIndex === index}
-                    toggleExpand={() => toggleRecipeExpand(index)}
-                    onAddToCart={() => addMissingIngredientsToCart(index, 'generated')}
-                    isAddingToCart={addingToCart}
-                  />
-                ))}
-              </div>
-            )}
-          </TabsContent>
-          
-          <TabsContent value="thai-recipes" className="space-y-4 mt-4">
-            {loadingSavedRecipes ? (
-              <div className="flex flex-col items-center justify-center p-12">
-                <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-                <p className="text-lg">Loading Thai recipes...</p>
-              </div>
-            ) : savedRecipes.length === 0 ? (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center p-12">
-                  <p className="text-lg text-center">No Thai recipes found. Please make sure recipes are loaded in the database.</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {savedRecipes.map((recipe: any, index) => (
-                  <RecipeCard 
-                    key={`thai-${recipe.id}`}
-                    recipe={{
-                      ...recipe,
-                      instructions: recipe.instructions || [`To view full instructions for ${recipe.name}, please click Generate AI Recipes.`]
-                    }}
-                    index={index}
-                    isExpanded={expandedRecipeIndex === index}
-                    toggleExpand={() => toggleRecipeExpand(index)}
-                    onAddToCart={() => addMissingIngredientsToCart(index, 'saved')}
-                    isAddingToCart={addingToCart}
-                    isSavedRecipe={true}
-                  />
-                ))}
-              </div>
-            )}
-          </TabsContent>
-        </Tabs>
+        <div className="space-y-4 mt-4">
+          {generatingRecipes ? (
+            <div className="flex flex-col items-center justify-center p-12">
+              <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+              <p className="text-lg">Generating recipe recommendations based on your ingredients...</p>
+            </div>
+          ) : generatedRecipes.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center p-12">
+                <p className="text-lg text-center mb-4">No AI recipes generated yet. Click the button above to generate recipes based on your ingredients.</p>
+                {userIngredients.length === 0 && (
+                  <p className="text-sm text-muted-foreground text-center">You need to add ingredients first. Go to the Ingredients page.</p>
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {generatedRecipes.map((recipe, index) => (
+                <RecipeCard 
+                  key={`ai-${index}`}
+                  recipe={recipe}
+                  index={index}
+                  isExpanded={expandedRecipeIndex === index}
+                  toggleExpand={() => toggleRecipeExpand(index)}
+                  onAddToCart={() => addMissingIngredientsToCart(index, 'generated')}
+                  isAddingToCart={addingToCart}
+                />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </Layout>
   );
@@ -143,10 +100,9 @@ interface RecipeCardProps {
   toggleExpand: () => void;
   onAddToCart: () => void;
   isAddingToCart: boolean;
-  isSavedRecipe?: boolean;
 }
 
-function RecipeCard({ recipe, index, isExpanded, toggleExpand, onAddToCart, isAddingToCart, isSavedRecipe = false }: RecipeCardProps) {
+function RecipeCard({ recipe, index, isExpanded, toggleExpand, onAddToCart, isAddingToCart }: RecipeCardProps) {
   return (
     <Card className="h-full flex flex-col">
       <CardHeader>
@@ -166,16 +122,6 @@ function RecipeCard({ recipe, index, isExpanded, toggleExpand, onAddToCart, isAd
         </div>
       </CardHeader>
       <CardContent className="flex-grow">
-        {isSavedRecipe && recipe.imageUrl && (
-          <div className="mb-4 rounded-md overflow-hidden">
-            <img 
-              src={recipe.imageUrl} 
-              alt={recipe.name}
-              className="w-full h-40 object-cover" 
-            />
-          </div>
-        )}
-
         <div className="space-y-4">
           <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="available">

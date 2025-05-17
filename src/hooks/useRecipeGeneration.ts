@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { useGemini } from '@/hooks/use-gemini';
 import { supabase } from '@/integrations/supabase/client';
@@ -36,8 +37,6 @@ export const useRecipeGeneration = (userId?: string) => {
   const [loadingIngredients, setLoadingIngredients] = useState(false);
   const [generatingRecipes, setGeneratingRecipes] = useState(false);
   const [addingToCart, setAddingToCart] = useState(false);
-  const [savedRecipes, setSavedRecipes] = useState<any[]>([]);
-  const [loadingSavedRecipes, setLoadingSavedRecipes] = useState(false);
   const { generateContent } = useGemini();
 
   // Fetch user's actual ingredients from Supabase
@@ -69,97 +68,8 @@ export const useRecipeGeneration = (userId?: string) => {
   useEffect(() => {
     if (userId) {
       loadUserIngredients();
-      loadSavedRecipes();
     }
   }, [userId]);
-
-  // Load saved recipes from the database
-  const loadSavedRecipes = async () => {
-    if (!userId) return;
-    
-    setLoadingSavedRecipes(true);
-    try {
-      const { data: recipes, error } = await supabase
-        .from('recipes')
-        .select(`
-          id, 
-          name, 
-          description, 
-          preparation_time, 
-          difficulty, 
-          category, 
-          image_url,
-          recipe_ingredients (
-            id,
-            ingredient_name,
-            quantity,
-            unit
-          )
-        `);
-
-      if (error) throw error;
-
-      // Transform the data to match our Recipe interface format
-      const formattedRecipes = recipes?.map(recipe => {
-        // For each recipe, check which ingredients the user has
-        const availableIngredients: RecipeIngredient[] = [];
-        const missingIngredients: RecipeIngredient[] = [];
-        
-        recipe.recipe_ingredients?.forEach(ingredient => {
-          // Check if user has this ingredient (case-insensitive match)
-          const userHasIngredient = userIngredients.some(
-            ui => ui.name.toLowerCase() === ingredient.ingredient_name.toLowerCase()
-          );
-          
-          const ingredientItem = {
-            name: ingredient.ingredient_name,
-            quantity: ingredient.quantity.toString(),
-            unit: ingredient.unit,
-            available: userHasIngredient
-          };
-          
-          if (userHasIngredient) {
-            availableIngredients.push(ingredientItem);
-          } else {
-            missingIngredients.push(ingredientItem);
-          }
-        });
-        
-        // Calculate match score
-        const totalIngredients = availableIngredients.length + missingIngredients.length;
-        const matchScore = totalIngredients > 0 
-          ? Math.round((availableIngredients.length / totalIngredients) * 100)
-          : 0;
-        
-        return {
-          id: recipe.id,
-          name: recipe.name,
-          description: recipe.description,
-          matchScore: matchScore,
-          availableIngredients,
-          missingIngredients,
-          instructions: [], // No instructions in database, would be filled by AI
-          cookingTime: recipe.preparation_time,
-          difficulty: recipe.difficulty,
-          category: recipe.category,
-          imageUrl: recipe.image_url
-        };
-      }) || [];
-      
-      // Sort by match score (highest first)
-      const sortedRecipes = formattedRecipes.sort((a, b) => b.matchScore - a.matchScore);
-      setSavedRecipes(sortedRecipes);
-    } catch (err) {
-      console.error('Error fetching saved recipes:', err);
-      toast({
-        title: 'Error',
-        description: 'Failed to load saved recipes',
-        variant: 'destructive',
-      });
-    } finally {
-      setLoadingSavedRecipes(false);
-    }
-  };
 
   // Generate recipes based on user's actual ingredients
   const generateRecipes = async () => {
@@ -354,18 +264,16 @@ Make sure to ONLY include ingredients from my list in the "Available Ingredients
   };
 
   // Add missing ingredients to cart
-  const addMissingIngredientsToCart = async (recipeIndex: number, sourceType: 'generated' | 'saved' = 'generated') => {
+  const addMissingIngredientsToCart = async (recipeIndex: number, sourceType: 'generated' = 'generated') => {
     if (!userId) {
       return;
     }
 
-    const recipes = sourceType === 'generated' ? generatedRecipes : savedRecipes;
-    
-    if (recipeIndex >= recipes.length) {
+    if (recipeIndex >= generatedRecipes.length) {
       return;
     }
 
-    const recipe = recipes[recipeIndex];
+    const recipe = generatedRecipes[recipeIndex];
     setAddingToCart(true);
 
     try {
@@ -444,13 +352,11 @@ Make sure to ONLY include ingredients from my list in the "Available Ingredients
   return {
     userIngredients,
     generatedRecipes,
-    savedRecipes,
     loadUserIngredients,
     generateRecipes,
     loadingIngredients,
     generatingRecipes,
     addMissingIngredientsToCart,
-    loadingSavedRecipes,
     addingToCart
   };
 };
