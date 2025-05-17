@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from './AuthComponents';
@@ -14,7 +15,8 @@ import {
   Search,
   Tag,
   ShoppingCart,
-  Package
+  Package,
+  Sparkles
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -186,6 +188,12 @@ export const Navbar = () => {
               label="My Orders"
               isActive={location.pathname === '/my-orders'}
             />
+            <MobileNavItem
+              to="/ai-recipes"
+              icon={<Sparkles className="h-5 w-5" />}
+              label="AI Recipes"
+              isActive={location.pathname === '/ai-recipes'}
+            />
             
             {location.pathname === '/products' && (
               <MobileNavItem
@@ -235,6 +243,7 @@ export const Sidebar = () => {
     { path: '/stores', label: 'Stores', icon: ShoppingBag },
     { path: '/recommendations', label: 'Recommendations', icon: ChefHat },
     { path: '/my-orders', label: 'My Orders', icon: ShoppingCart },
+    { path: '/ai-recipes', label: 'AI Recipes', icon: Sparkles }, // Added new menu item
   ]);
   const [categories, setCategories] = useState<string[]>([]);
   const { getUser } = useAuth();

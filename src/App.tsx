@@ -29,8 +29,9 @@ import CartPage from '@/pages/CartPage';
 import NotFound from '@/pages/NotFound';
 import ProtectedRoute from '@/components/ProtectedRoute';
 
-// Import our new recipe generator page
+// Import our recipe generator pages
 import GenerateRecipePage from '@/pages/GenerateRecipePage';
+import AIRecipesPage from '@/pages/AIRecipesPage';
 
 const queryClient = new QueryClient()
 
@@ -56,9 +57,10 @@ function App() {
                 <Route path="/stores" element={<StoresPage />} />
                 <Route path="/orders" element={<OrdersPage />} />
                 <Route path="/cart" element={<CartPage />} />
-                
-                {/* Add the new generate recipe route */}
                 <Route path="/generate-recipe" element={<GenerateRecipePage />} />
+                
+                {/* Add the new AI Recipes route */}
+                <Route path="/ai-recipes" element={<AIRecipesPage />} />
               </Route>
               
               <Route path="*" element={<NotFound />} />
