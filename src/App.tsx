@@ -1,4 +1,3 @@
-
 import React from 'react';
 import {
   BrowserRouter as Router,
@@ -37,10 +36,10 @@ const queryClient = new QueryClient()
 
 function App() {
   return (
-    <ThemeProvider defaultTheme="system" enableSystem>
-      <QueryClientProvider client={queryClient}>
-        <Router>
-          <AuthProvider>
+    <QueryClientProvider client={queryClient}>
+      <Router>
+        <AuthProvider>
+          <ThemeProvider defaultTheme="light" storageKey="ui-theme">
             <Routes>
               <Route path="/" element={<WelcomePage />} />
               <Route path="/login" element={<LoginPage />} />
@@ -66,10 +65,10 @@ function App() {
               <Route path="*" element={<NotFound />} />
             </Routes>
             <Toaster />
-          </AuthProvider>
-        </Router>
-      </QueryClientProvider>
-    </ThemeProvider>
+          </ThemeProvider>
+        </AuthProvider>
+      </Router>
+    </QueryClientProvider>
   );
 }
 

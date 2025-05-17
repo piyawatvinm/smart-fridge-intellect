@@ -3,9 +3,12 @@
 
 import * as React from "react"
 import { ThemeProvider as NextThemesProvider } from "next-themes"
-// Remove the problematic import and use React's PropsWithChildren type instead
+import { type ThemeProviderProps } from "next-themes/dist/types"
 
-export function ThemeProvider({ children, ...props }: React.PropsWithChildren<any>) {
+export function ThemeProvider({
+  children,
+  ...props
+}: ThemeProviderProps) {
   return (
     <NextThemesProvider {...props}>
       {children}
