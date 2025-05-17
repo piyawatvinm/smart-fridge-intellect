@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Layout } from '@/components/LayoutComponents';
 import { useAuth } from '@/components/AuthComponents';
 import { FridgeStats } from '@/components/dashboard/FridgeStats';
@@ -12,8 +12,14 @@ const Dashboard: React.FC = () => {
   const { getUser } = useAuth();
   const user = getUser();
   
-  // Initialize data if needed
-  useDashboardData(user?.id);
+  // Track if this component has already initialized data
+  const [hasInitialized, setHasInitialized] = useState(false);
+  
+  // Initialize data only once
+  if (user?.id && !hasInitialized) {
+    useDashboardData(user.id);
+    setHasInitialized(true);
+  }
   
   // Get fridge statistics
   const { fridgeStats, fridgeFullnessPercentage, loading } = useFridgeStats(user?.id);

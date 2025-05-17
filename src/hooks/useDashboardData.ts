@@ -10,11 +10,13 @@ import { toast } from 'sonner';
 
 export const useDashboardData = (userId: string | undefined) => {
   const [dataInitialized, setDataInitialized] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(false);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || dataInitialized || isInitializing) return;
     
     const checkAndInitializeMockData = async () => {
+      setIsInitializing(true);
       try {
         // Check if user already has ingredients
         const { data: existingIngredients, error: ingredientsError } = await supabase
@@ -25,6 +27,7 @@ export const useDashboardData = (userId: string | undefined) => {
           
         if (ingredientsError) {
           console.error('Error checking for existing ingredients:', ingredientsError);
+          setIsInitializing(false);
           return;
         }
         
@@ -37,6 +40,7 @@ export const useDashboardData = (userId: string | undefined) => {
           
         if (productsError) {
           console.error('Error checking for existing products:', productsError);
+          setIsInitializing(false);
           return;
         }
         
@@ -48,6 +52,7 @@ export const useDashboardData = (userId: string | undefined) => {
           
         if (storesError) {
           console.error('Error checking for existing stores:', storesError);
+          setIsInitializing(false);
           return;
         }
 
@@ -59,6 +64,7 @@ export const useDashboardData = (userId: string | undefined) => {
         ) {
           console.log('Data already exists, skipping initialization');
           setDataInitialized(true);
+          setIsInitializing(false);
           return;
         }
         
@@ -74,6 +80,7 @@ export const useDashboardData = (userId: string | undefined) => {
         // Generate some initial ingredients
         await generateMockIngredients(userId);
         
+        // Show toast only once per session
         toast.success('Welcome to Smart Fridge! Sample data has been generated for you.', {
           duration: 5000,
           id: 'mock-data-init'
@@ -82,13 +89,13 @@ export const useDashboardData = (userId: string | undefined) => {
         setDataInitialized(true);
       } catch (error) {
         console.error('Error checking and initializing mock data:', error);
+      } finally {
+        setIsInitializing(false);
       }
     };
     
-    if (!dataInitialized) {
-      checkAndInitializeMockData();
-    }
-  }, [userId, dataInitialized]);
+    checkAndInitializeMockData();
+  }, [userId, dataInitialized, isInitializing]);
 
   return {
     dataInitialized
