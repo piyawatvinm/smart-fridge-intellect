@@ -1,7 +1,18 @@
 
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Apple, Beef, Bread, Cheese, Coffee, Fish, GrapeIcon, LeafyGreen, Milk, Pizza } from 'lucide-react';
+import { 
+  Apple, 
+  Beef, 
+  Bed, // Using 'Bed' instead of 'Bread'
+  Coffee, 
+  Fish, 
+  Egg,  // Using 'Egg' instead of 'Cheese'
+  Grape, 
+  Leaf, 
+  Milk, 
+  Pizza 
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface FridgeCategoryChartProps {
@@ -18,20 +29,20 @@ export const FridgeCategoryChart: React.FC<FridgeCategoryChartProps> = ({ fridge
 
   // Icons for different food categories
   const CATEGORY_ICONS: Record<string, React.FC<{ className?: string }>> = {
-    'Vegetables': LeafyGreen,
+    'Vegetables': Leaf,
     'Fruits': Apple,
     'Meat': Beef,
     'Dairy': Milk,
-    'Grains': Bread,
+    'Grains': Bed, // Using 'Bed' as a replacement for 'Bread'
     'Beverages': Coffee,
     'Seafood': Fish,
-    'Cheese': Cheese,
+    'Cheese': Egg, // Using 'Egg' as a replacement for 'Cheese'
     'Prepared': Pizza,
-    'Fruits & Berries': GrapeIcon,
+    'Fruits & Berries': Grape,
   };
 
   // Default icon for unknown categories
-  const DefaultIcon = LeafyGreen;
+  const DefaultIcon = Leaf;
 
   // Transform categories data into sorted array
   const sortedCategories = Object.entries(fridgeStats.categories || {})
