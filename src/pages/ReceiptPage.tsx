@@ -1,3 +1,4 @@
+
 import { Layout } from "@/components/LayoutComponents";
 import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +11,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/components/AuthComponents";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { getCategoryForItem } from "@/lib/supabaseHelpers"; 
 
 interface Store {
   id: string;
@@ -37,6 +39,7 @@ const ReceiptPage = () => {
   const [newStoreName, setNewStoreName] = useState<string>("");
   const [newStoreAddress, setNewStoreAddress] = useState<string>("");
   const [showNewStoreInput, setShowNewStoreInput] = useState(false);
+  const [isSavingIngredients, setSavingIngredients] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
   
@@ -177,6 +180,8 @@ const ReceiptPage = () => {
         return;
       }
       
+      setSavingIngredients(true);
+      
       // First, create a receipt record
       const { data: receiptData, error: receiptError } = await supabase
         .from('receipts')
@@ -233,35 +238,20 @@ const ReceiptPage = () => {
         if (ingredientsError) throw ingredientsError;
         
         toast.success("Items added to your ingredients list!");
-        setTimeout(() => {
-          navigate('/ingredients');
-        }, 1500);
+        
+        // Use setTimeout with a promise to ensure we complete before navigating
+        await new Promise(resolve => {
+          setTimeout(() => {
+            setSavingIngredients(false);
+            resolve(true);
+            navigate('/ingredients');
+          }, 1500);
+        });
       }
     } catch (error) {
       console.error('Error saving to ingredients:', error);
       toast.error("Failed to save items");
-    }
-  };
-
-  // Helper function to determine a likely category based on item name
-  const getCategoryForItem = (name: string): string => {
-    name = name.toLowerCase();
-    
-    if (name.includes('milk') || name.includes('yogurt') || name.includes('cheese')) {
-      return 'Dairy';
-    } else if (name.includes('bread') || name.includes('bun') || name.includes('cake')) {
-      return 'Bakery';
-    } else if (name.includes('apple') || name.includes('banana') || name.includes('orange') ||
-              name.includes('fruit')) {
-      return 'Fruits';
-    } else if (name.includes('tomato') || name.includes('potato') || name.includes('onion') ||
-              name.includes('carrot') || name.includes('lettuce')) {
-      return 'Vegetables';
-    } else if (name.includes('beef') || name.includes('chicken') || name.includes('pork') ||
-              name.includes('steak')) {
-      return 'Meat';
-    } else {
-      return 'Other';
+      setSavingIngredients(false);
     }
   };
 
@@ -524,11 +514,20 @@ const ReceiptPage = () => {
             <CardFooter className="flex justify-end">
               <Button
                 onClick={saveToIngredients}
-                disabled={extractedItems.length === 0 || isProcessing || !user}
+                disabled={extractedItems.length === 0 || isProcessing || isSavingIngredients || !user}
                 className="bg-fridge-blue hover:bg-fridge-blue-light"
               >
-                <Check className="h-4 w-4 mr-2" />
-                Add to Ingredients
+                {isSavingIngredients ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-4 w-4 mr-2" />
+                    Add to Ingredients
+                  </>
+                )}
               </Button>
             </CardFooter>
           </Card>
