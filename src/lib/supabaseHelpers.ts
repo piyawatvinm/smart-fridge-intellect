@@ -932,3 +932,198 @@ function getCategoryShelfLife(category: string): number {
       return 14; // 14 days default
   }
 }
+
+// RECIPE FUNCTIONS
+
+// Fetch all recipes from the database
+export const fetchRecipes = async () => {
+  try {
+    const { data, error } = await supabase
+      .from('recipes')
+      .select('*')
+      .order('name');
+    
+    if (error) {
+      console.error('Error fetching recipes:', error);
+      throw error;
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error('Error in fetchRecipes:', error);
+    return [];
+  }
+};
+
+// Fetch recipe details including ingredients
+export const fetchRecipeDetails = async (recipeId) => {
+  try {
+    // First fetch the recipe
+    const { data: recipe, error: recipeError } = await supabase
+      .from('recipes')
+      .select('*')
+      .eq('id', recipeId)
+      .single();
+      
+    if (recipeError) {
+      console.error('Error fetching recipe details:', recipeError);
+      throw recipeError;
+    }
+    
+    // Then fetch the ingredients for this recipe
+    const { data: ingredients, error: ingredientsError } = await supabase
+      .from('recipe_ingredients')
+      .select(`
+        *,
+        products:product_id (
+          id,
+          name,
+          price,
+          image_url,
+          category,
+          store_id,
+          store:store_id (
+            id,
+            name,
+            address
+          )
+        )
+      `)
+      .eq('recipe_id', recipeId);
+    
+    if (ingredientsError) {
+      console.error('Error fetching recipe ingredients:', ingredientsError);
+      throw ingredientsError;
+    }
+    
+    return {
+      ...recipe,
+      ingredients: ingredients || []
+    };
+  } catch (error) {
+    console.error('Error in fetchRecipeDetails:', error);
+    throw error;
+  }
+};
+
+// Check ingredient availability for recipes
+export const checkIngredientsAvailability = async (userId, recipeIds) => {
+  try {
+    if (!userId) return {};
+    
+    // Fetch user's ingredients
+    const { data: userIngredients } = await supabase
+      .from('ingredients')
+      .select('name, quantity, unit')
+      .eq('user_id', userId);
+      
+    // Create a map of user ingredients for quick lookup
+    const userIngredientsMap = new Map();
+    (userIngredients || []).forEach(ing => {
+      userIngredientsMap.set(ing.name.toLowerCase(), ing);
+    });
+    
+    // Fetch recipe ingredients for all requested recipes
+    const { data: recipeIngredients } = await supabase
+      .from('recipe_ingredients')
+      .select('recipe_id, ingredient_name, quantity, unit')
+      .in('recipe_id', recipeIds);
+      
+    // Group ingredients by recipe
+    const availabilityByRecipe = {};
+    
+    (recipeIngredients || []).forEach(ingredient => {
+      const recipeId = ingredient.recipe_id;
+      
+      if (!availabilityByRecipe[recipeId]) {
+        availabilityByRecipe[recipeId] = {
+          totalCount: 0,
+          availableCount: 0,
+          ingredients: []
+        };
+      }
+      
+      const isAvailable = userIngredientsMap.has(ingredient.ingredient_name.toLowerCase());
+      
+      availabilityByRecipe[recipeId].totalCount++;
+      if (isAvailable) {
+        availabilityByRecipe[recipeId].availableCount++;
+      }
+      
+      availabilityByRecipe[recipeId].ingredients.push({
+        name: ingredient.ingredient_name,
+        quantity: ingredient.quantity,
+        unit: ingredient.unit,
+        available: isAvailable
+      });
+    });
+    
+    return availabilityByRecipe;
+  } catch (error) {
+    console.error('Error checking ingredients availability:', error);
+    return {};
+  }
+};
+
+// Find products for missing ingredients to add to cart
+export const findProductsForRecipeIngredients = async (recipeId) => {
+  try {
+    // Fetch the recipe ingredients
+    const { data: recipeIngredients, error } = await supabase
+      .from('recipe_ingredients')
+      .select(`
+        ingredient_name,
+        product_id,
+        products:product_id (*)
+      `)
+      .eq('recipe_id', recipeId);
+      
+    if (error) {
+      console.error('Error fetching recipe ingredients:', error);
+      throw error;
+    }
+    
+    const productsByIngredient = {};
+    
+    // For ingredients with associated products, add them to the map
+    for (const ingredient of (recipeIngredients || [])) {
+      if (ingredient.product_id && ingredient.products) {
+        const ingName = ingredient.ingredient_name;
+        if (!productsByIngredient[ingName]) {
+          productsByIngredient[ingName] = [];
+        }
+        productsByIngredient[ingName].push(ingredient.products);
+      }
+    }
+    
+    // For ingredients without direct product associations, find matching products
+    for (const ingredient of (recipeIngredients || [])) {
+      const ingName = ingredient.ingredient_name;
+      
+      if (!productsByIngredient[ingName] || productsByIngredient[ingName].length === 0) {
+        // Search for similar products
+        const { data: matchingProducts } = await supabase
+          .from('products')
+          .select(`
+            *,
+            store:store_id (
+              id,
+              name,
+              address
+            )
+          `)
+          .ilike('name', `%${ingName}%`)
+          .limit(5);
+          
+        if (matchingProducts && matchingProducts.length > 0) {
+          productsByIngredient[ingName] = matchingProducts;
+        }
+      }
+    }
+    
+    return productsByIngredient;
+  } catch (error) {
+    console.error('Error finding products for recipe ingredients:', error);
+    return {};
+  }
+};

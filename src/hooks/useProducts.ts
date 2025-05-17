@@ -3,11 +3,6 @@ import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchStores } from '@/lib/supabaseHelpers';
 import { toast } from 'sonner';
-import { 
-  initializeProducts as generateMockProducts, 
-  initializeStores as generateMockStores, 
-  initializeAppData 
-} from '@/utils/seedData';
 import { Product } from '@/components/ProductComponents';
 
 interface Store {
@@ -25,21 +20,6 @@ export const useProducts = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all-categories');
   const [selectedStore, setSelectedStore] = useState<string>('all-stores');
-
-  // Make sure mock data exists
-  useEffect(() => {
-    const ensureMockData = async () => {
-      try {
-        console.log("Initializing app data...");
-        await initializeAppData(null);
-        console.log("App data initialization completed");
-      } catch (error) {
-        console.error("Error ensuring mock data:", error);
-      }
-    };
-    
-    ensureMockData();
-  }, []);
 
   const loadProducts = async () => {
     setLoading(true);
@@ -67,40 +47,13 @@ export const useProducts = () => {
       
       console.log('Products fetched:', productData?.length || 0);
       
-      if (!productData || productData.length === 0) {
-        console.log('No products found, generating mock data...');
-        await initializeAppData(null);
-        
-        // Try fetching again
-        const { data: refreshedProducts, error: refreshError } = await supabase
-          .from('products')
-          .select(`
-            *,
-            store:store_id (
-              id,
-              name,
-              address,
-              logo_url,
-              location
-            )
-          `);
-          
-        if (refreshError) {
-          console.error('Error fetching products after generation:', refreshError);
-          throw refreshError;
-        }
-        
-        productData = refreshedProducts || [];
-        console.log('Products after generation:', productData.length);
-      }
-      
       // Fetch store data for products
       const storeList = await fetchStores();
       setStores(storeList);
       console.log('Stores fetched:', storeList?.length || 0);
 
       // Enhance products with store information when available
-      const productsWithStoreInfo = productData.map(product => {
+      const productsWithStoreInfo = productData?.map(product => {
         // Make sure each product has the store_id property, even if it's null
         const enhancedProduct: Product = {
           ...product,
@@ -121,7 +74,7 @@ export const useProducts = () => {
           };
         }
         return enhancedProduct;
-      });
+      }) || [];
       
       console.log('Enhanced products:', productsWithStoreInfo.length);
       setProducts(productsWithStoreInfo);

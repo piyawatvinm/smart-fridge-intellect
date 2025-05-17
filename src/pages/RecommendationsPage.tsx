@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Layout } from '@/components/LayoutComponents';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,63 +10,98 @@ import { Check, X, ShoppingCart, AlertTriangle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { 
-  generateMockRecipes, 
-  updateRecipeAvailability, 
-  findProductsForIngredients,
-  initializeProducts as generateMockProducts,
-  initializeStores as generateMockStores,
-  initializeIngredients as generateMockIngredients // Add this import
-} from '@/utils/seedData';
-import { addToCart } from '@/lib/supabaseHelpers';
+  addToCart,
+  checkIngredientsAvailability,
+  fetchRecipes,
+  findProductsForRecipeIngredients
+} from '@/lib/supabaseHelpers';
 import { supabase } from '@/integrations/supabase/client';
+
+interface Ingredient {
+  name: string;
+  quantity: number;
+  unit: string;
+  available: boolean;
+}
+
+interface Recipe {
+  id: string;
+  name: string;
+  description?: string;
+  imageUrl?: string;
+  preparationTime?: string;
+  difficulty?: string;
+  category?: string;
+  ingredients: Ingredient[];
+  missingCount: number;
+}
 
 const RecommendationsPage = () => {
   const { getUser } = useAuth();
   const user = getUser();
   const navigate = useNavigate();
   const [loadingRecipes, setLoadingRecipes] = useState(true);
-  const [recipes, setRecipes] = useState<any[]>([]);
-  const [selectedRecipe, setSelectedRecipe] = useState<any>(null);
-  const [missingIngredients, setMissingIngredients] = useState<any[]>([]);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
+  const [missingIngredients, setMissingIngredients] = useState<Ingredient[]>([]);
   const [productsForIngredients, setProductsForIngredients] = useState<any>({});
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [addingToCart, setAddingToCart] = useState(false);
   const [creatingIngredients, setCreatingIngredients] = useState(false);
-  
-  // Make sure mock data is generated when the page loads
-  useEffect(() => {
-    const ensureMockData = async () => {
-      try {
-        console.log("Ensuring mock data exists...");
-        await generateMockStores(null);
-        await generateMockProducts(null);
-        console.log("Mock data check completed");
-      } catch (error) {
-        console.error("Error ensuring mock data:", error);
-      }
-    };
-    
-    ensureMockData();
-  }, []);
   
   // Load recipes and update availability based on user's ingredients
   useEffect(() => {
     const loadRecipes = async () => {
       setLoadingRecipes(true);
       try {
-        // Generate mock recipes
-        const mockRecipes = generateMockRecipes();
+        // Fetch recipes from database
+        const recipeData = await fetchRecipes();
         
-        // Update recipe availability based on user ingredients
-        const updatedRecipes = user 
-          ? await updateRecipeAvailability(mockRecipes, user.id)
-          : mockRecipes;
+        if (!recipeData || recipeData.length === 0) {
+          toast.error('No recipes found in the database');
+          setLoadingRecipes(false);
+          return;
+        }
+
+        // Map database recipes to our Recipe interface with empty ingredients arrays
+        const recipesWithoutIngredients: Recipe[] = recipeData.map(dbRecipe => ({
+          id: dbRecipe.id,
+          name: dbRecipe.name,
+          description: dbRecipe.description,
+          imageUrl: dbRecipe.image_url,
+          preparationTime: dbRecipe.preparation_time,
+          difficulty: dbRecipe.difficulty,
+          category: dbRecipe.category,
+          ingredients: [],
+          missingCount: 0
+        }));
+
+        // If user is logged in, check ingredient availability
+        const recipeIds = recipesWithoutIngredients.map(r => r.id);
+        const availabilityByRecipe = user 
+          ? await checkIngredientsAvailability(user.id, recipeIds)
+          : {};
           
-        setRecipes(updatedRecipes);
+        // Update recipes with ingredient availability
+        const recipesWithIngredients = recipesWithoutIngredients.map(recipe => {
+          const availability = availabilityByRecipe[recipe.id] || { 
+            ingredients: [],
+            availableCount: 0,
+            totalCount: 0
+          };
+          
+          return {
+            ...recipe,
+            ingredients: availability.ingredients || [],
+            missingCount: (availability.totalCount || 0) - (availability.availableCount || 0)
+          };
+        });
+        
+        setRecipes(recipesWithIngredients);
         
         // Select the first recipe by default
-        if (updatedRecipes.length > 0) {
-          handleRecipeSelect(updatedRecipes[0]);
+        if (recipesWithIngredients.length > 0) {
+          handleRecipeSelect(recipesWithIngredients[0]);
         }
       } catch (error) {
         console.error('Error loading recipes:', error);
@@ -81,7 +115,7 @@ const RecommendationsPage = () => {
   }, [user]);
   
   // Handle recipe selection
-  const handleRecipeSelect = async (recipe) => {
+  const handleRecipeSelect = async (recipe: Recipe) => {
     setSelectedRecipe(recipe);
     
     // Find missing ingredients
@@ -92,13 +126,7 @@ const RecommendationsPage = () => {
       // Find products for missing ingredients
       setLoadingProducts(true);
       try {
-        const missingIngredientNames = missing.map(ing => ing.name);
-        console.log('Looking for products for these ingredients:', missingIngredientNames);
-        
-        // Use the findProductsForIngredients helper function
-        const productMatches = await findProductsForIngredients(missingIngredientNames);
-        
-        console.log('Products found:', productMatches);
+        const productMatches = await findProductsForRecipeIngredients(recipe.id);
         setProductsForIngredients(productMatches);
       } catch (error) {
         console.error('Error finding products for ingredients:', error);
@@ -137,54 +165,33 @@ const RecommendationsPage = () => {
     
     setCreatingIngredients(true);
     try {
-      // Gather all needed ingredient names
-      const neededIngredientNames = new Set();
-      
-      recipes.forEach(recipe => {
-        recipe.ingredients.forEach(ingredient => {
-          if (!ingredient.available) {
-            neededIngredientNames.add(ingredient.name);
-          }
-        });
-      });
-      
-      // Use the same logic as in seedData.ts but force creation of these specific ingredients
-      const { data: products, error: productsError } = await supabase
-        .from('products')
-        .select('id, name, category, unit');
-        
-      if (productsError || !products || products.length === 0) {
-        throw new Error('Error fetching products');
-      }
-      
       const ingredientsToInsert = [];
       
-      neededIngredientNames.forEach(ingredientName => {
-        const lowerName = ingredientName.toString().toLowerCase();
-        const matchingProduct = products.find(p => 
-          p.name.toLowerCase().includes(lowerName) || 
-          lowerName.includes(p.name.toLowerCase())
-        );
+      for (const ingredient of missingIngredients) {
+        const products = productsForIngredients[ingredient.name] || [];
+        if (products.length === 0) continue;
         
-        if (matchingProduct) {
-          // Set expiry date 30 days from now
-          const expiryDate = new Date();
-          expiryDate.setDate(expiryDate.getDate() + 30);
-          
-          ingredientsToInsert.push({
-            name: ingredientName.toString(),
-            quantity: 3, // Enough quantity
-            unit: matchingProduct.unit || 'unit',
-            category: matchingProduct.category,
-            expiry_date: expiryDate.toISOString().split('T')[0],
-            user_id: user.id,
-            product_id: matchingProduct.id
-          });
-        }
-      });
+        // Use the first matching product
+        const product = products[0];
+        
+        // Set expiry date to 30 days from now
+        const expiryDate = new Date();
+        expiryDate.setDate(expiryDate.getDate() + 30);
+        
+        ingredientsToInsert.push({
+          name: ingredient.name,
+          quantity: ingredient.quantity || 1,
+          unit: ingredient.unit || 'unit',
+          category: product.category || 'Other',
+          expiry_date: expiryDate.toISOString().split('T')[0],
+          user_id: user.id,
+          product_id: product.id
+        });
+      }
       
       if (ingredientsToInsert.length === 0) {
-        throw new Error('No matching products found for ingredients');
+        toast.warning('No matching products found for ingredients');
+        return;
       }
       
       // Insert ingredients
@@ -199,12 +206,35 @@ const RecommendationsPage = () => {
       toast.success(`Added ${ingredientsToInsert.length} ingredients to your fridge!`);
       
       // Reload recipes to update availability
-      const mockRecipes = generateMockRecipes();
-      const updatedRecipes = await updateRecipeAvailability(mockRecipes, user.id);
+      const recipeData = await fetchRecipes();
+      const recipeIds = recipeData.map(r => r.id);
+      const availabilityByRecipe = await checkIngredientsAvailability(user.id, recipeIds);
+      
+      // Update recipes with ingredient availability
+      const updatedRecipes = recipeData.map(dbRecipe => {
+        const availability = availabilityByRecipe[dbRecipe.id] || { 
+          ingredients: [],
+          availableCount: 0,
+          totalCount: 0
+        };
+        
+        return {
+          id: dbRecipe.id,
+          name: dbRecipe.name,
+          description: dbRecipe.description,
+          imageUrl: dbRecipe.image_url,
+          preparationTime: dbRecipe.preparation_time,
+          difficulty: dbRecipe.difficulty,
+          category: dbRecipe.category,
+          ingredients: availability.ingredients || [],
+          missingCount: (availability.totalCount || 0) - (availability.availableCount || 0)
+        };
+      });
+      
       setRecipes(updatedRecipes);
       
       // Update selected recipe
-      const updatedSelectedRecipe = updatedRecipes.find(r => r.id === selectedRecipe.id);
+      const updatedSelectedRecipe = updatedRecipes.find(r => r.id === selectedRecipe?.id);
       if (updatedSelectedRecipe) {
         handleRecipeSelect(updatedSelectedRecipe);
       }
@@ -271,7 +301,7 @@ const RecommendationsPage = () => {
   };
   
   // Add single ingredient to cart
-  const handleAddIngredientToCart = async (ingredient, product) => {
+  const handleAddIngredientToCart = async (ingredient: Ingredient, product: any) => {
     if (!user) {
       toast.error('Please log in to add items to cart');
       navigate('/login');
@@ -293,7 +323,7 @@ const RecommendationsPage = () => {
   };
   
   // Calculate how many ingredients are available vs missing
-  const getAvailabilityBadge = (recipe) => {
+  const getAvailabilityBadge = (recipe: Recipe | null) => {
     if (!recipe) return null;
     
     const totalIngredients = recipe.ingredients.length;
@@ -374,7 +404,6 @@ const RecommendationsPage = () => {
                     Browse All Products
                   </Button>
                   
-                  {/* Add new button to create all missing ingredients at once */}
                   {user && recipes.some(r => r.missingCount > 0) && (
                     <Button
                       variant="default"
@@ -397,11 +426,11 @@ const RecommendationsPage = () => {
                       <div>
                         <CardTitle className="text-xl mb-1">{selectedRecipe.name}</CardTitle>
                         <div className="flex items-center space-x-2 text-gray-500 text-sm">
-                          <span>{selectedRecipe.category}</span>
+                          <span>{selectedRecipe.category || 'Main Course'}</span>
                           <span>•</span>
-                          <span>{selectedRecipe.preparationTime}</span>
+                          <span>{selectedRecipe.preparationTime || '30 min'}</span>
                           <span>•</span>
-                          <span>{selectedRecipe.difficulty}</span>
+                          <span>{selectedRecipe.difficulty || 'Medium'}</span>
                         </div>
                       </div>
                       {getAvailabilityBadge(selectedRecipe)}
@@ -411,7 +440,7 @@ const RecommendationsPage = () => {
                     <div className="flex flex-col md:flex-row gap-6">
                       <div className="md:w-1/3">
                         <img
-                          src={selectedRecipe.imageUrl}
+                          src={selectedRecipe.imageUrl || '/placeholder.svg'}
                           alt={selectedRecipe.name}
                           className="w-full h-48 object-cover rounded-md"
                         />
@@ -494,6 +523,9 @@ const RecommendationsPage = () => {
                           <TabsContent value="instructions">
                             <div>
                               <h3 className="font-medium mb-2">Preparation Steps:</h3>
+                              <p className="text-gray-500 mb-4">
+                                {selectedRecipe.description || 'No detailed instructions available for this recipe.'}
+                              </p>
                               <ol className="list-decimal list-inside space-y-2 pl-1">
                                 <li>Preheat oven to 350°F (175°C) if baking is required.</li>
                                 <li>Prepare all ingredients: wash, chop, and measure as needed.</li>
@@ -501,9 +533,6 @@ const RecommendationsPage = () => {
                                 <li>Cook according to the recipe guidelines.</li>
                                 <li>Serve hot or cold as preferred.</li>
                               </ol>
-                              <p className="mt-4 text-gray-500 italic">
-                                Note: Detailed recipe instructions would be available in a full recipe app.
-                              </p>
                             </div>
                           </TabsContent>
                         </Tabs>
