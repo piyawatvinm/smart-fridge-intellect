@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/components/AuthComponents';
 import { toast } from 'sonner';
+import { useRecipeImages } from '@/hooks/useRecipeImages';
 
 interface Recipe {
   id: string;
@@ -28,6 +29,7 @@ export const ChefSuggestion = () => {
   const [loading, setLoading] = useState(true);
   const { getUser } = useAuth();
   const user = getUser();
+  const { fetchImageForRecipe, getRecipeImage } = useRecipeImages();
   
   useEffect(() => {
     const fetchDailyRecipe = async () => {
@@ -52,7 +54,13 @@ export const ChefSuggestion = () => {
           // Use the day of month to select a recipe (cyclic selection)
           const dayOfMonth = new Date().getDate();
           const recipeIndex = dayOfMonth % recipes.length;
-          setRecipe(recipes[recipeIndex]);
+          const selectedRecipe = recipes[recipeIndex];
+          setRecipe(selectedRecipe);
+          
+          // Fetch image for this recipe if needed
+          if (!selectedRecipe.image_url) {
+            fetchImageForRecipe(selectedRecipe.id, selectedRecipe.name);
+          }
         }
       } catch (error) {
         console.error('Error fetching daily recipe:', error);
@@ -125,15 +133,13 @@ export const ChefSuggestion = () => {
               )}
             </div>
             
-            {recipe.image_url && (
-              <div className="aspect-video w-full overflow-hidden rounded-md mb-4">
-                <img 
-                  src={recipe.image_url} 
-                  alt={recipe.name}
-                  className="w-full h-full object-cover"
-                />
-              </div>
-            )}
+            <div className="aspect-video w-full overflow-hidden rounded-md mb-4">
+              <img 
+                src={recipe.image_url || getRecipeImage(recipe.id, '/placeholder.svg')} 
+                alt={recipe.name}
+                className="w-full h-full object-cover"
+              />
+            </div>
             
             <p className="text-gray-600 mb-4">
               {recipe.description?.substring(0, 150)}

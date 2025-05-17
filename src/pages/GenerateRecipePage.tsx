@@ -1,64 +1,15 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Layout } from '@/components/LayoutComponents';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useAuth } from '@/components/AuthComponents';
-import { Check, X, ShoppingCart, AlertCircle, ChefHat, Loader2 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { useRecipeGeneration, Recipe } from '@/hooks/useRecipeGeneration';
-import { toast } from 'sonner';
-import { createProductIfNotExists } from '@/lib/supabaseHelpers';
+import { RecipeImageFetcher } from '@/components/recipe/RecipeImageFetcher';
 
 const GenerateRecipePage = () => {
-  const { getUser } = useAuth();
-  const user = getUser();
-  const navigate = useNavigate();
-  const [selectedRecipeIndex, setSelectedRecipeIndex] = useState(0);
-  
-  const {
-    userIngredients,
-    generatedRecipes,
-    generateRecipes,
-    loadUserIngredients,
-    loadingIngredients,
-    generatingRecipes,
-    addMissingIngredientsToCart,
-    addingToCart
-  } = useRecipeGeneration(user?.id);
-  
-  const handleGenerateRecipes = () => {
-    generateRecipes();
-  };
-  
-  const currentRecipe = generatedRecipes[selectedRecipeIndex];
-  
-  // Update the method to add missing ingredients to cart with product creation
-  const handleAddToCartClick = async (recipeIndex: number) => {
-    if (!user) {
-      toast.error('Please sign in to add items to cart');
-      navigate('/login');
-      return;
-    }
-    
-    const recipe = generatedRecipes[recipeIndex];
-    if (!recipe) return;
-    
-    try {
-      setSelectedRecipeIndex(recipeIndex);
-      await addMissingIngredientsToCart(recipeIndex);
-    } catch (error) {
-      console.error('Error adding to cart:', error);
-      toast.error('Failed to add ingredients to cart');
-    }
-  };
-  
   return (
     <Layout>
-      <div className="container mx-auto">
-        <h1 className="text-2xl font-bold mb-6">Generate Recipes from Your Ingredients</h1>
+      <div className="container mx-auto space-y-6">
+        <div className="flex flex-col md:flex-row justify-between items-start gap-4">
+          <h1 className="text-3xl font-bold">Recipe Generator</h1>
+          <RecipeImageFetcher />
+        </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="md:col-span-1 space-y-4">
