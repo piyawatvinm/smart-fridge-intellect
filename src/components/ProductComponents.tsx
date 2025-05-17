@@ -45,13 +45,15 @@ interface ProductCardProps {
   onUpdate?: () => void;
   showActions?: boolean;
   isOwner?: boolean;
+  highlighted?: boolean; // Add highlighted prop to the interface
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({ 
   product, 
   onUpdate,
   showActions = true,
-  isOwner = false
+  isOwner = false,
+  highlighted = false // Set default to false
 }) => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -71,7 +73,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
   return (
     <>
-      <Card className="overflow-hidden h-full flex flex-col">
+      <Card className={`overflow-hidden h-full flex flex-col ${highlighted ? 'border-blue-500 shadow-md' : ''}`}>
         {product.image_url && (
           <div className="h-48 bg-gray-100">
             <img 
@@ -84,7 +86,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         
         <CardHeader className="pb-2">
           <div className="flex justify-between items-start">
-            <CardTitle className="text-xl">{product.name}</CardTitle>
+            <CardTitle className={`text-xl ${highlighted ? 'text-blue-700' : ''}`}>{product.name}</CardTitle>
             <div className="text-lg font-bold">${product.price.toFixed(2)}</div>
           </div>
           {product.unit && (
@@ -102,6 +104,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               <Store className="h-3 w-3" />
               {product.store.name}
             </Badge>
+          )}
+          {highlighted && (
+            <Badge className="bg-blue-500 mt-1">Recipe Ingredient</Badge>
           )}
         </CardHeader>
         
