@@ -21,6 +21,7 @@ export interface RecipeIngredient {
 }
 
 export interface Recipe {
+  id?: string; // Added id property to fix the TypeScript error
   name: string;
   matchScore: number; // Percentage match
   availableIngredients: RecipeIngredient[];
@@ -113,8 +114,14 @@ Make sure to ONLY include ingredients from my list in the "Available Ingredients
       // Parse recipes from generated content
       const recipes = parseRecipesFromText(generatedContent, userIngredients);
       
+      // Add unique IDs to each recipe
+      const recipesWithIds = recipes.map(recipe => ({
+        ...recipe,
+        id: crypto.randomUUID() // Add a unique ID to each recipe
+      }));
+      
       // Sort recipes by match score (highest first)
-      const sortedRecipes = recipes.sort((a, b) => b.matchScore - a.matchScore);
+      const sortedRecipes = recipesWithIds.sort((a, b) => b.matchScore - a.matchScore);
       
       setGeneratedRecipes(sortedRecipes);
     } catch (err) {

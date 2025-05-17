@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Layout } from '@/components/LayoutComponents';
 import { RecipeImageFetcher } from '@/components/recipe/RecipeImageFetcher';
@@ -61,6 +60,7 @@ const GenerateRecipePage = () => {
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* Left sidebar with ingredients and recipe options */}
           <div className="md:col-span-1 space-y-4">
             <Card className="bg-white">
               <CardHeader className="pb-2">
