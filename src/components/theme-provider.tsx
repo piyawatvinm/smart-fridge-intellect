@@ -3,7 +3,17 @@
 
 import * as React from "react"
 import { ThemeProvider as NextThemesProvider } from "next-themes"
-import type { ThemeProviderProps } from "next-themes/dist/types"
+
+// Define our own interface for theme provider props based on next-themes documentation
+interface ThemeProviderProps {
+  defaultTheme?: string
+  storageKey?: string
+  enableSystem?: boolean
+  disableTransitionOnChange?: boolean
+  enableColorScheme?: boolean
+  forcedTheme?: string
+  attribute?: string | string[]
+}
 
 export function ThemeProvider({
   children,
