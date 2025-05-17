@@ -1,8 +1,57 @@
-import React from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { Layout } from '@/components/LayoutComponents';
 import { RecipeImageFetcher } from '@/components/recipe/RecipeImageFetcher';
+import { useRecipeImages } from '@/hooks/useRecipeImages';
+import { useRecipeGeneration } from '@/hooks/useRecipeGeneration';
+import { useAuth } from '@/components/AuthComponents';
+import { useNavigate } from 'react-router-dom';
+import { 
+  Card, CardHeader, CardTitle, CardContent, CardFooter 
+} from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { 
+  ChefHat, Loader2, Check, X, ShoppingCart, AlertCircle 
+} from 'lucide-react';
 
 const GenerateRecipePage = () => {
+  const navigate = useNavigate();
+  const { getUser } = useAuth();
+  const user = getUser();
+  const [selectedRecipeIndex, setSelectedRecipeIndex] = useState(0);
+  const { getRecipeImage } = useRecipeImages();
+  
+  const {
+    userIngredients,
+    generatedRecipes,
+    loadUserIngredients,
+    generateRecipes,
+    loadingIngredients,
+    generatingRecipes,
+    addMissingIngredientsToCart,
+    addingToCart
+  } = useRecipeGeneration(user?.id);
+  
+  useEffect(() => {
+    if (user) {
+      loadUserIngredients();
+    }
+  }, [user]);
+  
+  const handleGenerateRecipes = () => {
+    generateRecipes();
+  };
+
+  const handleAddToCartClick = (recipeIndex: number) => {
+    addMissingIngredientsToCart(recipeIndex);
+  };
+  
+  // Get the current recipe to display
+  const currentRecipe = generatedRecipes[selectedRecipeIndex];
+
   return (
     <Layout>
       <div className="container mx-auto space-y-6">
@@ -123,11 +172,23 @@ const GenerateRecipePage = () => {
                 <CardHeader>
                   <div className="flex justify-between items-start">
                     <div>
-                      <CardTitle className="text-xl mb-1">{currentRecipe.name}</CardTitle>
-                      <div className="flex items-center space-x-2 text-gray-500 text-sm">
-                        {currentRecipe.cookingTime && <span>{currentRecipe.cookingTime}</span>}
-                        {currentRecipe.cookingTime && currentRecipe.difficulty && <span>•</span>}
-                        {currentRecipe.difficulty && <span>{currentRecipe.difficulty}</span>}
+                      <div className="flex items-center gap-4">
+                        {/* Recipe Image */}
+                        <div className="relative w-20 h-20 rounded-md overflow-hidden bg-gray-100">
+                          <img 
+                            src={getRecipeImage(currentRecipe.id || '', '/placeholder.svg')} 
+                            alt={currentRecipe.name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <div>
+                          <CardTitle className="text-xl mb-1">{currentRecipe.name}</CardTitle>
+                          <div className="flex items-center space-x-2 text-gray-500 text-sm">
+                            {currentRecipe.cookingTime && <span>{currentRecipe.cookingTime}</span>}
+                            {currentRecipe.cookingTime && currentRecipe.difficulty && <span>•</span>}
+                            {currentRecipe.difficulty && <span>{currentRecipe.difficulty}</span>}
+                          </div>
+                        </div>
                       </div>
                     </div>
                     <Badge 
