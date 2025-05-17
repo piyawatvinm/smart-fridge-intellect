@@ -1,65 +1,70 @@
 
 import React from 'react';
-import { Link } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { ShoppingCart, Receipt, UtensilsCrossed, ListTodo, ChefHat } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
-export const QuickActions: React.FC = () => {
+export function QuickActions() {
+  const navigate = useNavigate();
+  
   return (
-    <Card className="bg-white">
+    <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Quick Actions</CardTitle>
+        <CardTitle>Quick Actions</CardTitle>
+        <CardDescription>Common tasks to help you manage your kitchen</CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Link
-            to="/ingredients"
-            className="flex flex-col items-center p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <Button 
+            variant="outline" 
+            className="flex flex-col h-auto py-4 gap-2"
+            onClick={() => navigate('/shopping-list')}
           >
-            <img
-              src="/lovable-uploads/7bdceca8-ab1b-4b15-9380-3f882c3dcd0a.png"
-              alt="Ingredients"
-              className="w-12 h-12 object-contain mb-2"
-            />
-            <span className="text-sm font-medium">Manage Ingredients</span>
-          </Link>
+            <ShoppingCart className="h-5 w-5" />
+            <span>Shopping Lists</span>
+          </Button>
           
-          <Link
-            to="/recommendations"
-            className="flex flex-col items-center p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+          <Button 
+            variant="outline" 
+            className="flex flex-col h-auto py-4 gap-2"
+            onClick={() => navigate('/ingredients')}
           >
-            <img
-              src="/lovable-uploads/03b0a8ee-b8be-4393-9dfb-da609f65d624.png"
-              alt="Recommendations"
-              className="w-12 h-12 object-contain mb-2"
-            />
-            <span className="text-sm font-medium">Recipe Recommendations</span>
-          </Link>
+            <UtensilsCrossed className="h-5 w-5" />
+            <span>Manage Ingredients</span>
+          </Button>
           
-          <Link
-            to="/products"
-            className="flex flex-col items-center p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+          <Button 
+            variant="outline" 
+            className="flex flex-col h-auto py-4 gap-2"
+            onClick={() => navigate('/receipt')}
           >
-            <img
-              src="/lovable-uploads/9cadcb73-4e65-49e3-ac69-e45f3f42bc1f.png"
-              alt="Products"
-              className="w-12 h-12 object-contain mb-2"
-            />
-            <span className="text-sm font-medium">Browse Products</span>
-          </Link>
+            <Receipt className="h-5 w-5" />
+            <span>Scan Receipt</span>
+          </Button>
           
-          <Link
-            to="/my-orders"
-            className="flex flex-col items-center p-4 border rounded-lg hover:bg-gray-50 transition-colors"
+          <Button 
+            variant="outline" 
+            className="flex flex-col h-auto py-4 gap-2"
+            onClick={() => navigate('/orders')}
           >
-            <img
-              src="/lovable-uploads/20043334-4b13-492a-86ca-3d31d67ca0b3.png"
-              alt="Orders"
-              className="w-12 h-12 object-contain mb-2"
-            />
-            <span className="text-sm font-medium">My Orders</span>
-          </Link>
+            <ListTodo className="h-5 w-5" />
+            <span>Track Orders</span>
+          </Button>
+          
+          {/* Add new Generate Recipe button */}
+          <Button 
+            variant="outline" 
+            className="flex flex-col h-auto py-4 gap-2 bg-green-50 hover:bg-green-100 text-green-700 border-green-200"
+            onClick={() => navigate('/generate-recipe')}
+          >
+            <ChefHat className="h-5 w-5" />
+            <span>Generate Recipes</span>
+          </Button>
         </div>
       </CardContent>
     </Card>
   );
-};
+}
+
+export default QuickActions;

@@ -1,67 +1,71 @@
+import React from 'react';
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+} from "react-router-dom";
+import {
+  QueryClient,
+  QueryClientProvider,
+} from '@tanstack/react-query'
+import { ThemeProvider } from "@/components/theme-provider"
+import { Toaster } from "@/components/ui/toaster"
 
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
-import NotFound from "./pages/NotFound";
-import LoginPage from "./pages/LoginPage";
-import RegisterPage from "./pages/RegisterPage";
-import Dashboard from "./pages/Dashboard";
-import ReceiptPage from "./pages/ReceiptPage";
-import IngredientsPage from "./pages/IngredientsPage";
-import StoresPage from "./pages/StoresPage";
-import RecommendationsPage from "./pages/RecommendationsPage";
-import WelcomePage from "./pages/WelcomePage";
-import ProductsPage from "./pages/ProductsPage";
-import MyOrdersPage from "./pages/MyOrdersPage";
-import ProtectedRoute from "./components/ProtectedRoute";
-import { AuthProvider } from "./components/AuthComponents";
-import React from "react";
+import WelcomePage from '@/pages/WelcomePage';
+import LoginPage from '@/pages/LoginPage';
+import RegisterPage from '@/pages/RegisterPage';
+import Dashboard from '@/pages/Dashboard';
+import IngredientsPage from '@/pages/IngredientsPage';
+import ShoppingListPage from '@/pages/ShoppingListPage';
+import ReceiptPage from '@/pages/ReceiptPage';
+import ProductsPage from '@/pages/ProductsPage';
+import RecommendationsPage from '@/pages/RecommendationsPage';
+import MyOrdersPage from '@/pages/MyOrdersPage';
+import StoresPage from '@/pages/StoresPage';
+import OrdersPage from '@/pages/OrdersPage';
+import CartPage from '@/pages/CartPage';
+import NotFound from '@/pages/NotFound';
+import ProtectedRoute from '@/components/ProtectedRoute';
 
-// Create a new QueryClient instance outside the component
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: false,
-      retry: 1,
-    },
-  },
-});
+// Import our new recipe generator page
+import GenerateRecipePage from '@/pages/GenerateRecipePage';
 
-const App = () => {
+const queryClient = new QueryClient()
+
+function App() {
+
   return (
-    <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <AuthProvider>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/welcome" element={<WelcomePage />} />
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/register" element={<RegisterPage />} />
+    <ThemeProvider>
+      <QueryClientProvider client={queryClient}>
+        <Router>
+          <Routes>
+            <Route path="/" element={<WelcomePage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            
+            <Route element={<ProtectedRoute />}>
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/ingredients" element={<IngredientsPage />} />
+              <Route path="/shopping-list" element={<ShoppingListPage />} />
+              <Route path="/receipt" element={<ReceiptPage />} />
+              <Route path="/products" element={<ProductsPage />} />
+              <Route path="/recommendations" element={<RecommendationsPage />} />
+              <Route path="/my-orders" element={<MyOrdersPage />} />
+              <Route path="/stores" element={<StoresPage />} />
+              <Route path="/orders" element={<OrdersPage />} />
+              <Route path="/cart" element={<CartPage />} />
               
-              {/* Protected Routes */}
-              <Route element={<ProtectedRoute />}>
-                <Route path="/dashboard" element={<Dashboard />} />
-                <Route path="/receipt" element={<ReceiptPage />} />
-                <Route path="/ingredients" element={<IngredientsPage />} />
-                <Route path="/stores" element={<StoresPage />} />
-                <Route path="/recommendations" element={<RecommendationsPage />} />
-                <Route path="/products" element={<ProductsPage />} />
-                <Route path="/my-orders" element={<MyOrdersPage />} />
-              </Route>
-              
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </TooltipProvider>
-        </AuthProvider>
-      </BrowserRouter>
-    </QueryClientProvider>
+              {/* Add the new generate recipe route */}
+              <Route path="/generate-recipe" element={<GenerateRecipePage />} />
+            </Route>
+            
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+          <Toaster />
+        </Router>
+      </QueryClientProvider>
+    </ThemeProvider>
   );
-};
+}
 
 export default App;

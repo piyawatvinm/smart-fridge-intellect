@@ -1,0 +1,300 @@
+
+import { useState, useEffect } from 'react';
+import { useGemini } from '@/hooks/use-gemini';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { addToCart } from '@/lib/supabaseHelpers';
+
+export interface IngredientItem {
+  id: string;
+  name: string;
+  quantity: number;
+  unit: string;
+  category?: string;
+}
+
+export interface RecipeIngredient {
+  name: string;
+  available: boolean;
+  quantity?: string;
+  unit?: string;
+}
+
+export interface Recipe {
+  name: string;
+  matchScore: number; // Percentage match
+  availableIngredients: RecipeIngredient[];
+  missingIngredients: RecipeIngredient[];
+  instructions: string[];
+  cookingTime?: string;
+  difficulty?: string;
+}
+
+export const useRecipeGeneration = (userId?: string) => {
+  const [loading, setLoading] = useState(false);
+  const [userIngredients, setUserIngredients] = useState<IngredientItem[]>([]);
+  const [generatedRecipes, setGeneratedRecipes] = useState<Recipe[]>([]);
+  const [loadingIngredients, setLoadingIngredients] = useState(false);
+  const [generatingRecipes, setGeneratingRecipes] = useState(false);
+  const [addingToCart, setAddingToCart] = useState(false);
+  const { generateContent } = useGemini();
+
+  // Fetch user's actual ingredients from Supabase
+  const loadUserIngredients = async () => {
+    if (!userId) return;
+
+    setLoadingIngredients(true);
+    try {
+      const { data, error } = await supabase
+        .from('ingredients')
+        .select('id, name, quantity, unit, category')
+        .eq('user_id', userId);
+
+      if (error) throw error;
+      setUserIngredients(data || []);
+    } catch (err) {
+      console.error('Error fetching user ingredients:', err);
+      toast.error('Failed to load your ingredients');
+    } finally {
+      setLoadingIngredients(false);
+    }
+  };
+
+  // Load ingredients when userId changes
+  useEffect(() => {
+    if (userId) {
+      loadUserIngredients();
+    }
+  }, [userId]);
+
+  // Generate recipes based on user's actual ingredients
+  const generateRecipes = async () => {
+    if (!userId || userIngredients.length === 0) {
+      toast.error('No ingredients available to generate recipes');
+      return;
+    }
+
+    setGeneratingRecipes(true);
+    try {
+      // Format ingredients for prompt
+      const ingredientsList = userIngredients.map(ing => 
+        `${ing.name} (${ing.quantity} ${ing.unit})`
+      ).join('\n');
+
+      // Create prompt for Gemini
+      const prompt = `Here are my current ingredients:\n${ingredientsList}\n\nSuggest 5 recipes sorted by how many of my ingredients they use. For each recipe, return in this exact format:
+      
+RECIPE:
+Title: [recipe name]
+Match: [percentage of ingredients I already have]
+Available Ingredients: [list ingredients I already have that are used, be specific with quantities]
+Missing Ingredients: [list ingredients I don't have that are needed, be specific with quantities]
+Instructions: [numbered list of steps]
+Cooking Time: [estimated time]
+Difficulty: [easy, medium, or hard]
+
+Make sure to ONLY include ingredients from my list in the "Available Ingredients" section.`;
+
+      // Generate content with Gemini
+      const generatedContent = await generateContent(prompt);
+      
+      if (!generatedContent) {
+        throw new Error('Failed to generate recipe content');
+      }
+
+      // Parse recipes from generated content
+      const recipes = parseRecipesFromText(generatedContent, userIngredients);
+      
+      // Sort recipes by match score (highest first)
+      const sortedRecipes = recipes.sort((a, b) => b.matchScore - a.matchScore);
+      
+      setGeneratedRecipes(sortedRecipes);
+    } catch (err) {
+      console.error('Error generating recipes:', err);
+      toast.error('Failed to generate recipes');
+    } finally {
+      setGeneratingRecipes(false);
+    }
+  };
+
+  // Parse recipes from the generated text
+  const parseRecipesFromText = (text: string, availableIngredients: IngredientItem[]): Recipe[] => {
+    const recipes: Recipe[] = [];
+    
+    // Split text by "RECIPE:" to get individual recipes
+    const recipeBlocks = text.split('RECIPE:').filter(block => block.trim().length > 0);
+    
+    for (const block of recipeBlocks) {
+      try {
+        const lines = block.split('\n').map(line => line.trim()).filter(Boolean);
+        
+        // Initialize recipe object
+        const recipe: Partial<Recipe> = {
+          availableIngredients: [],
+          missingIngredients: [],
+          instructions: []
+        };
+
+        let currentSection: string | null = null;
+        
+        for (const line of lines) {
+          if (line.includes(':')) {
+            const [section, content] = line.split(':', 2).map(s => s.trim());
+            currentSection = section.toLowerCase();
+            
+            switch (currentSection) {
+              case 'title':
+                recipe.name = content;
+                break;
+              case 'match':
+                // Extract percentage number
+                const matchPercentage = parseInt(content.replace(/\D/g, ''));
+                recipe.matchScore = isNaN(matchPercentage) ? 0 : matchPercentage;
+                break;
+              case 'cooking time':
+                recipe.cookingTime = content;
+                break;
+              case 'difficulty':
+                recipe.difficulty = content;
+                break;
+              case 'available ingredients':
+                // Start collecting available ingredients
+                if (content) {
+                  recipe.availableIngredients = recipe.availableIngredients || [];
+                  recipe.availableIngredients.push({
+                    name: content,
+                    available: true,
+                    quantity: extractQuantity(content),
+                    unit: extractUnit(content)
+                  });
+                }
+                break;
+              case 'missing ingredients':
+                // Start collecting missing ingredients
+                if (content) {
+                  recipe.missingIngredients = recipe.missingIngredients || [];
+                  recipe.missingIngredients.push({
+                    name: content,
+                    available: false,
+                    quantity: extractQuantity(content),
+                    unit: extractUnit(content)
+                  });
+                }
+                break;
+              case 'instructions':
+                // Start collecting instructions
+                if (content) {
+                  recipe.instructions = recipe.instructions || [];
+                  recipe.instructions.push(content);
+                }
+                break;
+            }
+          } else if (currentSection) {
+            // Continue collecting items for the current section
+            switch (currentSection) {
+              case 'available ingredients':
+                recipe.availableIngredients = recipe.availableIngredients || [];
+                recipe.availableIngredients.push({
+                  name: cleanIngredientName(line),
+                  available: true,
+                  quantity: extractQuantity(line),
+                  unit: extractUnit(line)
+                });
+                break;
+              case 'missing ingredients':
+                recipe.missingIngredients = recipe.missingIngredients || [];
+                recipe.missingIngredients.push({
+                  name: cleanIngredientName(line),
+                  available: false,
+                  quantity: extractQuantity(line),
+                  unit: extractUnit(line)
+                });
+                break;
+              case 'instructions':
+                recipe.instructions = recipe.instructions || [];
+                recipe.instructions.push(line);
+                break;
+            }
+          }
+        }
+        
+        // Verify the recipe has required fields before adding
+        if (recipe.name && (recipe.availableIngredients?.length || recipe.missingIngredients?.length)) {
+          recipes.push(recipe as Recipe);
+        }
+      } catch (err) {
+        console.error('Error parsing recipe block:', err);
+        // Skip this recipe and continue with others
+      }
+    }
+    
+    return recipes;
+  };
+
+  // Helper function to clean ingredient name from quantity
+  const cleanIngredientName = (ingredient: string): string => {
+    // Remove quantities like "2 cups" or "1/2 teaspoon" from ingredient name
+    return ingredient.replace(/^[\d\s\/\.\-]+(?:cups?|tablespoons?|teaspoons?|tbsp|tsp|g|ml|l|oz|pound|lb|kg)?\s+of\s+/i, '')
+      .replace(/^[\d\s\/\.\-]+(?:cups?|tablespoons?|teaspoons?|tbsp|tsp|g|ml|l|oz|pound|lb|kg)\s+/i, '')
+      .trim();
+  };
+
+  // Helper function to extract quantity from ingredient text
+  const extractQuantity = (ingredient: string): string => {
+    const quantityMatch = ingredient.match(/^([\d\s\/\.\-]+)/);
+    return quantityMatch ? quantityMatch[1].trim() : '';
+  };
+
+  // Helper function to extract unit from ingredient text
+  const extractUnit = (ingredient: string): string => {
+    const unitMatch = ingredient.match(/^[\d\s\/\.\-]+(cups?|tablespoons?|teaspoons?|tbsp|tsp|g|ml|l|oz|pound|lb|kg)/i);
+    return unitMatch ? unitMatch[1].trim() : '';
+  };
+
+  // Add missing ingredients to cart
+  const addMissingIngredientsToCart = async (recipeIndex: number) => {
+    if (!userId || recipeIndex >= generatedRecipes.length) {
+      return;
+    }
+
+    const recipe = generatedRecipes[recipeIndex];
+    setAddingToCart(true);
+
+    try {
+      // Find products matching missing ingredients
+      for (const ingredient of recipe.missingIngredients) {
+        // Search for products matching ingredient name
+        const { data: products } = await supabase
+          .from('products')
+          .select('*')
+          .ilike('name', `%${ingredient.name}%`)
+          .limit(1);
+
+        if (products && products.length > 0) {
+          // Add product to cart
+          await addToCart(userId, products[0].id);
+          toast.success(`Added ${products[0].name} to cart`);
+        } else {
+          toast.error(`Could not find product for: ${ingredient.name}`);
+        }
+      }
+      toast.success('Added available products to cart');
+    } catch (error) {
+      console.error('Error adding ingredients to cart:', error);
+      toast.error('Failed to add some ingredients to cart');
+    } finally {
+      setAddingToCart(false);
+    }
+  };
+
+  return {
+    userIngredients,
+    generatedRecipes,
+    loadUserIngredients,
+    generateRecipes,
+    loadingIngredients,
+    generatingRecipes,
+    addMissingIngredientsToCart,
+    addingToCart
+  };
+};
