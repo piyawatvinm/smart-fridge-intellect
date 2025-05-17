@@ -75,6 +75,12 @@ export function useGemini({ onSuccess, onError }: UseGeminiProps = {}) {
         throw new Error('At least one ingredient (available or missing) is required');
       }
       
+      console.log("Generating recipe with:", {
+        availableIngredients,
+        missingIngredients,
+        generateMultiple: generateMultipleRecipes
+      });
+      
       const { data, error } = await supabase.functions.invoke('gemini', {
         body: { 
           recipeMode: true, 

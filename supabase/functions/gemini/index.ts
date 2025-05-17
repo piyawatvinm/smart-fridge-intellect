@@ -36,10 +36,10 @@ serve(async (req) => {
       // Build a structured prompt for recipe generation
       if (generateMultipleRecipes) {
         // Generate multiple recipe options
-        finalPrompt = `Based on the following ingredients, generate 3 different recipe options ranked by how well they match the available ingredients:\n\n`;
+        finalPrompt = `Based EXCLUSIVELY on the following ingredients, generate 3 different recipe options ranked by how well they match the available ingredients. Do not suggest additional ingredients that are not listed. Work only with what's provided:\n\n`;
       } else {
         // Generate a single recipe
-        finalPrompt = `Generate a recipe based on the following ingredients:\n\n`;
+        finalPrompt = `Generate a recipe based EXCLUSIVELY on the following ingredients. Do not suggest additional ingredients that are not listed:\n\n`;
       }
       
       if (availableIngredients && availableIngredients.length > 0) {
@@ -51,14 +51,14 @@ serve(async (req) => {
       }
       
       if (generateMultipleRecipes) {
-        finalPrompt += `Please provide three recipes in the following format:
+        finalPrompt += `Please provide exactly three recipes in the following format. Use ONLY the ingredients listed above, with no additional ingredients beyond those provided:
 
 RECIPE OPTION 1:
 Recipe Name:
 Match Score: (Give a percentage indicating how well this recipe matches the available ingredients)
 Ingredients:
-- Available: (List the ingredients this recipe uses that the user already has)
-- Missing: (List the ingredients this recipe needs that the user doesn't have)
+- Available: (List ONLY the ingredients this recipe uses that the user already has from the Available Ingredients list)
+- Missing: (List ONLY the ingredients this recipe needs that the user specified in the Missing Ingredients list)
 Instructions:
 Cooking Time:
 Difficulty:
@@ -69,7 +69,7 @@ RECIPE OPTION 2:
 RECIPE OPTION 3:
 (Follow the same format)`;
       } else {
-        finalPrompt += `Please format the response with these sections:
+        finalPrompt += `Please format the response with these sections. Use ONLY the ingredients listed above, with no additional ingredients beyond those provided:
 Recipe Name:
 Ingredients:
 Instructions:
