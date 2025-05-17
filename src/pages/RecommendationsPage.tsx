@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Layout } from '@/components/LayoutComponents';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +10,7 @@ import { useAuth } from '@/components/AuthComponents';
 import { Check, X, ShoppingCart, AlertTriangle, ChefHat } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import { Progress } from "@/components/ui/progress";
 import { 
   addToCart,
   checkIngredientsAvailability,
@@ -39,6 +41,9 @@ interface Recipe {
   category?: string;
   ingredients: Ingredient[];
   missingCount: number;
+  availableCount?: number;
+  totalCount?: number;
+  matchScore?: number;
 }
 
 const RecommendationsPage = () => {
@@ -96,7 +101,7 @@ const RecommendationsPage = () => {
           ? await checkIngredientsAvailability(user.id, recipeIds)
           : {};
           
-        // Update recipes with ingredient availability
+        // Update recipes with ingredient availability and calculate match scores
         const recipesWithIngredients = recipesWithoutIngredients.map(recipe => {
           const availability = availabilityByRecipe[recipe.id] || { 
             ingredients: [],
@@ -104,18 +109,35 @@ const RecommendationsPage = () => {
             totalCount: 0
           };
           
+          const totalCount = availability.totalCount || 0;
+          const availableCount = availability.availableCount || 0;
+          const missingCount = totalCount - availableCount;
+          
+          // Calculate match score as percentage (0-100)
+          const matchScore = totalCount > 0 
+            ? Math.round((availableCount / totalCount) * 100) 
+            : 0;
+          
           return {
             ...recipe,
             ingredients: availability.ingredients || [],
-            missingCount: (availability.totalCount || 0) - (availability.availableCount || 0)
+            missingCount: missingCount,
+            availableCount: availableCount,
+            totalCount: totalCount,
+            matchScore: matchScore
           };
         });
         
-        setRecipes(recipesWithIngredients);
+        // Sort recipes by match score (highest first)
+        const sortedRecipes = recipesWithIngredients.sort((a, b) => 
+          (b.matchScore || 0) - (a.matchScore || 0)
+        );
+        
+        setRecipes(sortedRecipes);
         
         // Select the first recipe by default
-        if (recipesWithIngredients.length > 0) {
-          handleRecipeSelect(recipesWithIngredients[0]);
+        if (sortedRecipes.length > 0) {
+          handleRecipeSelect(sortedRecipes[0]);
         }
       } catch (error) {
         console.error('Error loading recipes:', error);
@@ -146,10 +168,6 @@ const RecommendationsPage = () => {
         // Use our improved product matching to find products
         const productMatches = await getProductsForIngredients(missingIngredientNames);
         setProductsForIngredients(productMatches);
-        
-        console.log("Products for ingredients:", productMatches);
-        console.log("Matched ingredients:", matchedIngredients);
-        console.log("Unmatched ingredients:", unmatchedIngredients);
       } catch (error) {
         console.error('Error finding products for ingredients:', error);
         toast.error('Failed to find matching products');
@@ -232,13 +250,22 @@ const RecommendationsPage = () => {
       const recipeIds = recipeData.map(r => r.id);
       const availabilityByRecipe = await checkIngredientsAvailability(user.id, recipeIds);
       
-      // Update recipes with ingredient availability
+      // Update recipes with ingredient availability and re-rank them
       const updatedRecipes = recipeData.map(dbRecipe => {
         const availability = availabilityByRecipe[dbRecipe.id] || { 
           ingredients: [],
           availableCount: 0,
           totalCount: 0
         };
+        
+        const totalCount = availability.totalCount || 0;
+        const availableCount = availability.availableCount || 0;
+        const missingCount = totalCount - availableCount;
+        
+        // Calculate match score
+        const matchScore = totalCount > 0 
+          ? Math.round((availableCount / totalCount) * 100) 
+          : 0;
         
         return {
           id: dbRecipe.id,
@@ -249,14 +276,22 @@ const RecommendationsPage = () => {
           difficulty: dbRecipe.difficulty,
           category: dbRecipe.category,
           ingredients: availability.ingredients || [],
-          missingCount: (availability.totalCount || 0) - (availability.availableCount || 0)
+          missingCount: missingCount,
+          availableCount: availableCount,
+          totalCount: totalCount,
+          matchScore: matchScore
         };
       });
       
-      setRecipes(updatedRecipes);
+      // Sort by match score
+      const sortedUpdatedRecipes = updatedRecipes.sort((a, b) => 
+        (b.matchScore || 0) - (a.matchScore || 0)
+      );
+      
+      setRecipes(sortedUpdatedRecipes);
       
       // Update selected recipe
-      const updatedSelectedRecipe = updatedRecipes.find(r => r.id === selectedRecipe?.id);
+      const updatedSelectedRecipe = sortedUpdatedRecipes.find(r => r.id === selectedRecipe?.id);
       if (updatedSelectedRecipe) {
         handleRecipeSelect(updatedSelectedRecipe);
       }
@@ -361,34 +396,6 @@ const RecommendationsPage = () => {
     navigate('/products?from=recommendation');
   };
   
-  // Calculate how many ingredients are available vs missing
-  const getAvailabilityBadge = (recipe: Recipe | null) => {
-    if (!recipe) return null;
-    
-    const totalIngredients = recipe.ingredients.length;
-    const availableCount = recipe.ingredients.filter(ing => ing.available).length;
-    const missingCount = totalIngredients - availableCount;
-    
-    if (missingCount === 0) {
-      return (
-        <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-          All ingredients available
-        </Badge>
-      );
-    } else {
-      return (
-        <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200">
-          {missingCount} missing ingredient{missingCount !== 1 ? 's' : ''}
-        </Badge>
-      );
-    }
-  };
-  
-  // Open AI recipe generator
-  const handleOpenRecipeGenerator = () => {
-    setShowRecipeGenerator(true);
-  };
-  
   // Get available ingredient names for AI generator
   const getAvailableIngredientNames = (): string[] => {
     if (!selectedRecipe) return [];
@@ -403,6 +410,11 @@ const RecommendationsPage = () => {
     return selectedRecipe.ingredients
       .filter(ing => !ing.available)
       .map(ing => ing.name);
+  };
+  
+  // Open AI recipe generator
+  const handleOpenRecipeGenerator = () => {
+    setShowRecipeGenerator(true);
   };
   
   return (
@@ -450,19 +462,33 @@ const RecommendationsPage = () => {
                           }`}
                           onClick={() => handleRecipeSelect(recipe)}
                         >
-                          <span className="text-left">{recipe.name}</span>
-                          <Badge 
-                            variant="outline" 
-                            className={`ml-2 ${
-                              recipe.missingCount === 0
-                                ? 'bg-green-50 text-green-700'
-                                : 'bg-yellow-50 text-yellow-700'
-                            }`}
-                          >
-                            {recipe.missingCount === 0
-                              ? 'Ready'
-                              : `${recipe.missingCount} missing`}
-                          </Badge>
+                          <div className="flex flex-col items-start w-full">
+                            <div className="flex justify-between w-full">
+                              <span className="text-left">{recipe.name}</span>
+                              <Badge 
+                                variant="outline" 
+                                className={`ml-2 whitespace-nowrap ${
+                                  recipe.matchScore === 100
+                                    ? 'bg-green-50 text-green-700'
+                                    : recipe.matchScore && recipe.matchScore >= 50
+                                      ? 'bg-yellow-50 text-yellow-700'
+                                      : 'bg-red-50 text-red-700'
+                                }`}
+                              >
+                                {recipe.matchScore}% match
+                              </Badge>
+                            </div>
+                            
+                            {/* Progress bar showing ingredient availability */}
+                            <div className="w-full mt-2">
+                              <div className="text-xs text-gray-500 mb-1 flex justify-between">
+                                <span>
+                                  {recipe.availableCount}/{recipe.totalCount} ingredients
+                                </span>
+                              </div>
+                              <Progress value={recipe.matchScore || 0} className="h-2" />
+                            </div>
+                          </div>
                         </Button>
                       </li>
                     ))}
@@ -488,7 +514,7 @@ const RecommendationsPage = () => {
                     </Button>
                   )}
                   
-                  {/* New AI Recipe Generation Button */}
+                  {/* AI Recipe Generation Button */}
                   {selectedRecipe && (
                     <Button
                       variant="default"
@@ -518,7 +544,26 @@ const RecommendationsPage = () => {
                           <span>{selectedRecipe.difficulty || 'Medium'}</span>
                         </div>
                       </div>
-                      {getAvailabilityBadge(selectedRecipe)}
+                      <Badge 
+                        variant="outline" 
+                        className={`${
+                          selectedRecipe.matchScore === 100
+                            ? 'bg-green-50 text-green-700 border-green-200'
+                            : selectedRecipe.matchScore && selectedRecipe.matchScore >= 50
+                              ? 'bg-yellow-50 text-yellow-700 border-yellow-200'
+                              : 'bg-red-50 text-red-700 border-red-200'
+                        }`}
+                      >
+                        {selectedRecipe.matchScore}% match
+                      </Badge>
+                    </div>
+                    {/* Availability progress bar */}
+                    <div className="mt-2">
+                      <div className="flex justify-between text-sm mb-1">
+                        <span>{selectedRecipe.availableCount} of {selectedRecipe.totalCount} ingredients available</span>
+                        <span className="text-gray-500">{selectedRecipe.matchScore}% complete</span>
+                      </div>
+                      <Progress value={selectedRecipe.matchScore || 0} className="h-2" />
                     </div>
                   </CardHeader>
                   <CardContent>
