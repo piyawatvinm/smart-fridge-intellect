@@ -713,7 +713,7 @@ const RecommendationsPage = () => {
         
         {/* Recipe Generator Dialog */}
         <Dialog open={showRecipeGenerator} onOpenChange={setShowRecipeGenerator}>
-          <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+          <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
             <RecipeGenerator 
               availableIngredients={getAvailableIngredientNames()} 
               missingIngredients={getMissingIngredientNames()}

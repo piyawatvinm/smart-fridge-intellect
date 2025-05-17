@@ -11,6 +11,7 @@ interface UseGeminiProps {
 interface GenerateRecipeOptions {
   availableIngredients?: string[];
   missingIngredients?: string[];
+  generateMultipleRecipes?: boolean;
 }
 
 export function useGemini({ onSuccess, onError }: UseGeminiProps = {}) {
@@ -68,7 +69,7 @@ export function useGemini({ onSuccess, onError }: UseGeminiProps = {}) {
     setError(null);
     
     try {
-      const { availableIngredients = [], missingIngredients = [] } = options;
+      const { availableIngredients = [], missingIngredients = [], generateMultipleRecipes = false } = options;
       
       if (availableIngredients.length === 0 && missingIngredients.length === 0) {
         throw new Error('At least one ingredient (available or missing) is required');
@@ -79,6 +80,7 @@ export function useGemini({ onSuccess, onError }: UseGeminiProps = {}) {
           recipeMode: true, 
           availableIngredients,
           missingIngredients,
+          generateMultipleRecipes,
         },
       });
 

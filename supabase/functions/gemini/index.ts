@@ -27,14 +27,20 @@ serve(async (req) => {
 
     // Parse the request body
     const body = await req.json();
-    const { prompt, recipeMode, availableIngredients, missingIngredients } = body;
+    const { prompt, recipeMode, availableIngredients, missingIngredients, generateMultipleRecipes } = body;
     
     let finalPrompt = prompt;
     
     // Format a special prompt for recipe recommendations if in recipe mode
     if (recipeMode === true) {
       // Build a structured prompt for recipe generation
-      finalPrompt = `Generate a recipe based on the following ingredients:\n\n`;
+      if (generateMultipleRecipes) {
+        // Generate multiple recipe options
+        finalPrompt = `Based on the following ingredients, generate 3 different recipe options ranked by how well they match the available ingredients:\n\n`;
+      } else {
+        // Generate a single recipe
+        finalPrompt = `Generate a recipe based on the following ingredients:\n\n`;
+      }
       
       if (availableIngredients && availableIngredients.length > 0) {
         finalPrompt += `Available Ingredients:\n${availableIngredients.join('\n')}\n\n`;
@@ -44,13 +50,33 @@ serve(async (req) => {
         finalPrompt += `Missing Ingredients (suggest alternatives if possible):\n${missingIngredients.join('\n')}\n\n`;
       }
       
-      finalPrompt += `Please format the response with these sections:
+      if (generateMultipleRecipes) {
+        finalPrompt += `Please provide three recipes in the following format:
+
+RECIPE OPTION 1:
+Recipe Name:
+Match Score: (Give a percentage indicating how well this recipe matches the available ingredients)
+Ingredients:
+- Available: (List the ingredients this recipe uses that the user already has)
+- Missing: (List the ingredients this recipe needs that the user doesn't have)
+Instructions:
+Cooking Time:
+Difficulty:
+
+RECIPE OPTION 2:
+(Follow the same format)
+
+RECIPE OPTION 3:
+(Follow the same format)`;
+      } else {
+        finalPrompt += `Please format the response with these sections:
 Recipe Name:
 Ingredients:
 Instructions:
 Cooking Time:
 Difficulty:
 Alternative Ingredients (for missing ones):`;
+      }
 
       console.log("Recipe mode prompt:", finalPrompt);
     }
@@ -80,7 +106,7 @@ Alternative Ingredients (for missing ones):`;
           temperature: 0.7,
           topK: 40,
           topP: 0.95,
-          maxOutputTokens: 1024,
+          maxOutputTokens: 2048, // Increased token limit to handle multiple recipes
         }
       }),
     });
@@ -100,7 +126,11 @@ Alternative Ingredients (for missing ones):`;
     const generatedText = data.candidates[0]?.content?.parts[0]?.text || '';
 
     return new Response(
-      JSON.stringify({ text: generatedText, wasRecipeMode: recipeMode === true }),
+      JSON.stringify({ 
+        text: generatedText, 
+        wasRecipeMode: recipeMode === true,
+        wasMultipleRecipes: generateMultipleRecipes === true
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
     
