@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { toast } from '@/components/ui/use-toast';
 import { ArrowRight, Check, X, ChefHat, ShoppingCart } from 'lucide-react';
-import { addToCart } from '@/lib/supabaseHelpers';
+import { addToCart, getCategoryForItem } from '@/lib/supabaseHelpers';
 
 interface Ingredient {
   id: string;
@@ -40,6 +40,7 @@ const AIRecipesPage = () => {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
+  const [processingRecipeIndex, setProcessingRecipeIndex] = useState<number | null>(null);
 
   // Fetch user ingredients
   useEffect(() => {
@@ -205,41 +206,104 @@ const AIRecipesPage = () => {
     return recipes.sort((a, b) => b.matchScore - a.matchScore);
   };
 
+  // Find or create product for an ingredient
+  const findOrCreateProduct = async (ingredientName: string): Promise<string> => {
+    if (!user?.id) throw new Error('User not authenticated');
+
+    try {
+      // Try to find an existing product with similar name
+      const { data: existingProducts } = await supabase
+        .from('products')
+        .select('id')
+        .ilike('name', `%${ingredientName}%`)
+        .limit(1);
+
+      // If product exists, return its ID
+      if (existingProducts && existingProducts.length > 0) {
+        return existingProducts[0].id;
+      }
+
+      // Product doesn't exist, get a random store
+      const { data: stores } = await supabase
+        .from('stores')
+        .select('id')
+        .limit(10);
+
+      // Get random store ID or use a default
+      const storeId = stores && stores.length > 0 
+        ? stores[Math.floor(Math.random() * stores.length)].id 
+        : null;
+
+      // Generate a random price between 10 and 50
+      const price = Math.floor(Math.random() * 40) + 10;
+
+      // Determine category based on ingredient name
+      const category = getCategoryForItem(ingredientName);
+
+      // Create new product
+      const { data: newProduct, error } = await supabase
+        .from('products')
+        .insert([
+          { 
+            name: ingredientName,
+            description: `Auto-generated product for ${ingredientName}`,
+            category,
+            unit: 'unit',
+            price,
+            store_id: storeId,
+            user_id: user.id
+          }
+        ])
+        .select('id')
+        .single();
+
+      if (error) throw error;
+
+      // Return the new product ID
+      return newProduct.id;
+    } catch (error) {
+      console.error(`Error finding/creating product for ${ingredientName}:`, error);
+      throw error;
+    }
+  };
+
   // Add missing ingredients to cart
-  const addMissingToCart = async (recipe: Recipe) => {
+  const addMissingToCart = async (recipe: Recipe, recipeIndex: number) => {
     if (!user?.id) return;
     
     setIsAddingToCart(true);
+    setProcessingRecipeIndex(recipeIndex);
+    
     try {
       const missingIngredients = recipe.ingredients.filter(ing => !ing.available);
+      let successCount = 0;
       
       for (const ingredient of missingIngredients) {
-        // Search for matching products
-        const { data: products } = await supabase
-          .from('products')
-          .select('*')
-          .ilike('name', `%${ingredient.name}%`)
-          .limit(1);
+        try {
+          // Find or create product for this ingredient
+          const productId = await findOrCreateProduct(ingredient.name);
           
-        if (products && products.length > 0) {
-          await addToCart(user.id, products[0].id);
-          toast({
-            title: 'Added to cart',
-            description: `Added ${products[0].name} to cart`,
-          });
-        } else {
-          toast({
-            title: 'Product not found',
-            description: `Could not find product for: ${ingredient.name}`,
-            variant: 'destructive',
-          });
+          // Add to cart
+          await addToCart(user.id, productId);
+          successCount++;
+        } catch (error) {
+          console.error(`Error processing ingredient ${ingredient.name}:`, error);
+          // Continue with other ingredients even if one fails
         }
       }
       
-      toast({
-        title: 'Success',
-        description: 'Missing ingredients added to cart',
-      });
+      if (successCount > 0) {
+        toast({
+          title: 'Success',
+          description: `Added ${successCount} of ${missingIngredients.length} missing ingredients to cart`,
+        });
+      } else {
+        toast({
+          title: 'Error',
+          description: 'Failed to add any ingredients to cart',
+          variant: 'destructive',
+        });
+      }
     } catch (error) {
       console.error('Error adding to cart:', error);
       toast({
@@ -249,6 +313,7 @@ const AIRecipesPage = () => {
       });
     } finally {
       setIsAddingToCart(false);
+      setProcessingRecipeIndex(null);
     }
   };
 
@@ -374,11 +439,13 @@ const AIRecipesPage = () => {
                   <Button 
                     className="w-full" 
                     variant="outline"
-                    onClick={() => addMissingToCart(recipe)}
+                    onClick={() => addMissingToCart(recipe, index)}
                     disabled={isAddingToCart || recipe.ingredients.every(ing => ing.available)}
                   >
                     <ShoppingCart size={18} className="mr-2" />
-                    Add Missing Ingredients to Cart
+                    {processingRecipeIndex === index && isAddingToCart ? 
+                      'Processing...' : 
+                      'Add Missing Ingredients to Cart'}
                   </Button>
                 </CardFooter>
               </Card>
