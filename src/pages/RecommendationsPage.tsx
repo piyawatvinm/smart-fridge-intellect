@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Layout } from '@/components/LayoutComponents';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,6 +17,8 @@ import {
   findProductsForRecipeIngredients
 } from '@/lib/supabaseHelpers';
 import { supabase } from '@/integrations/supabase/client';
+import { useProducts } from '@/hooks/useProducts';
+import RecommendationNotice from '@/components/product/RecommendationNotice';
 
 interface Ingredient {
   name: string;
@@ -48,6 +51,14 @@ const RecommendationsPage = () => {
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [addingToCart, setAddingToCart] = useState(false);
   const [creatingIngredients, setCreatingIngredients] = useState(false);
+  
+  // Use our improved product matching hook
+  const {
+    getProductsForIngredients,
+    productsByIngredient,
+    matchedIngredients,
+    unmatchedIngredients
+  } = useProducts();
   
   // Load recipes and update availability based on user's ingredients
   useEffect(() => {
@@ -114,7 +125,7 @@ const RecommendationsPage = () => {
     loadRecipes();
   }, [user]);
   
-  // Handle recipe selection
+  // Handle recipe selection with improved product matching
   const handleRecipeSelect = async (recipe: Recipe) => {
     setSelectedRecipe(recipe);
     
@@ -123,11 +134,19 @@ const RecommendationsPage = () => {
     setMissingIngredients(missing);
     
     if (missing.length > 0) {
-      // Find products for missing ingredients
+      // Find products for missing ingredients using our improved hook
       setLoadingProducts(true);
       try {
-        const productMatches = await findProductsForRecipeIngredients(recipe.id);
+        // Get ingredient names from missing ingredients
+        const missingIngredientNames = missing.map(ing => ing.name);
+        
+        // Use our improved product matching to find products
+        const productMatches = await getProductsForIngredients(missingIngredientNames);
         setProductsForIngredients(productMatches);
+        
+        console.log("Products for ingredients:", productMatches);
+        console.log("Matched ingredients:", matchedIngredients);
+        console.log("Unmatched ingredients:", unmatchedIngredients);
       } catch (error) {
         console.error('Error finding products for ingredients:', error);
         toast.error('Failed to find matching products');
@@ -350,6 +369,19 @@ const RecommendationsPage = () => {
       <div className="container mx-auto">
         <h1 className="text-2xl font-bold mb-6">Recipe Recommendations</h1>
         
+        {/* Show enhanced recommendation notice with matched/unmatched ingredients */}
+        <RecommendationNotice 
+          isVisible={true}
+          recipeCount={recipes.length}
+          storeCount={new Set(Object.values(productsForIngredients)
+            .flatMap(prods => prods.filter(Boolean).map(p => p.store?.id))
+            .filter(Boolean)).size}
+          availableProductCount={matchedIngredients.length}
+          totalIngredientCount={matchedIngredients.length + unmatchedIngredients.length}
+          matchedIngredients={matchedIngredients}
+          unmatchedIngredients={unmatchedIngredients}
+        />
+        
         {loadingRecipes ? (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="md:col-span-1">
@@ -477,9 +509,15 @@ const RecommendationsPage = () => {
                                       {!ingredient.available && (
                                         <Badge 
                                           variant="outline" 
-                                          className="bg-red-50 text-red-700 border-red-200"
+                                          className={
+                                            productsForIngredients[ingredient.name]?.length > 0 
+                                              ? "bg-yellow-50 text-yellow-700 border-yellow-200" 
+                                              : "bg-red-50 text-red-700 border-red-200"
+                                          }
                                         >
-                                          Missing
+                                          {productsForIngredients[ingredient.name]?.length > 0 
+                                            ? "Product Available" 
+                                            : "No Product Match"}
                                         </Badge>
                                       )}
                                     </li>
@@ -546,7 +584,7 @@ const RecommendationsPage = () => {
                 </div>
               )}
               
-              {/* Missing Ingredients Products Section */}
+              {/* Missing Ingredients Products Section with improved product cards */}
               {selectedRecipe && missingIngredients.length > 0 && (
                 <div className="mt-6">
                   <Card>
@@ -575,7 +613,7 @@ const RecommendationsPage = () => {
                                     {products.slice(0, 3).map((product) => (
                                       <div 
                                         key={product.id}
-                                        className="border rounded p-3 flex justify-between items-center"
+                                        className="border rounded p-3 flex justify-between items-center bg-blue-50 border-blue-200"
                                       >
                                         <div>
                                           <p className="font-medium">{product.name}</p>
@@ -588,11 +626,13 @@ const RecommendationsPage = () => {
                                               {product.store?.name || 'Unknown Store'}
                                             </span>
                                           </div>
+                                          <Badge className="mt-1 bg-blue-500">Matches: {ingredient.name}</Badge>
                                         </div>
                                         <Button
                                           size="sm"
                                           onClick={() => handleAddIngredientToCart(ingredient, product)}
                                           disabled={!user}
+                                          className="bg-green-600 hover:bg-green-700"
                                         >
                                           <ShoppingCart className="h-3.5 w-3.5 mr-1" />
                                           Add

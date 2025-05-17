@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from 'sonner';
-import { Trash2, Store, Info } from 'lucide-react';
+import { Trash2, Store, Info, CheckCircle } from 'lucide-react';
 import { useAuth } from './AuthComponents';
 import { addProduct, updateProduct, deleteProduct } from '@/lib/supabaseHelpers';
 import { AddToCartButton } from './CartComponents';
@@ -32,6 +33,7 @@ export interface Product {
     location?: string;
   };
   unit?: string;
+  matchingIngredient?: string; // New property to track which ingredient this product matches
 }
 
 interface Store {
@@ -45,7 +47,8 @@ interface ProductCardProps {
   onUpdate?: () => void;
   showActions?: boolean;
   isOwner?: boolean;
-  highlighted?: boolean; // Add highlighted prop to the interface
+  highlighted?: boolean;
+  matchingIngredient?: string; // Add explicit prop for matching ingredient name
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({ 
@@ -53,7 +56,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   onUpdate,
   showActions = true,
   isOwner = false,
-  highlighted = false // Set default to false
+  highlighted = false,
+  matchingIngredient
 }) => {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -70,6 +74,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   const handleViewDetails = () => {
     setIsDetailsOpen(true);
   };
+
+  // Use either the passed matching ingredient or the one from the product
+  const displayIngredient = matchingIngredient || product.matchingIngredient;
 
   return (
     <>
@@ -105,8 +112,11 @@ export const ProductCard: React.FC<ProductCardProps> = ({
               {product.store.name}
             </Badge>
           )}
-          {highlighted && (
-            <Badge className="bg-blue-500 mt-1">Recipe Ingredient</Badge>
+          {highlighted && displayIngredient && (
+            <Badge className="bg-blue-500 mt-1 flex items-center gap-1">
+              <CheckCircle className="h-3 w-3" />
+              Matches: {displayIngredient}
+            </Badge>
           )}
         </CardHeader>
         
@@ -189,6 +199,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 <div className="font-medium">Price:</div>
                 <div className="text-lg font-bold">${product.price.toFixed(2)}</div>
               </div>
+              
+              {displayIngredient && (
+                <div className="flex justify-between items-center">
+                  <div className="font-medium">Matches ingredient:</div>
+                  <Badge className="bg-blue-500">{displayIngredient}</Badge>
+                </div>
+              )}
               
               {product.description && (
                 <div>

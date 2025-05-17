@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { ShoppingCart, List } from 'lucide-react';
+import { ShoppingCart, List, CheckCircle } from 'lucide-react';
 
 interface RecommendationNoticeProps {
   isVisible: boolean;
@@ -9,6 +9,8 @@ interface RecommendationNoticeProps {
   storeCount?: number;
   availableProductCount?: number;
   totalIngredientCount?: number;
+  matchedIngredients?: string[];
+  unmatchedIngredients?: string[];
 }
 
 const RecommendationNotice: React.FC<RecommendationNoticeProps> = ({ 
@@ -16,7 +18,9 @@ const RecommendationNotice: React.FC<RecommendationNoticeProps> = ({
   recipeCount = 0,
   storeCount = 0,
   availableProductCount = 0,
-  totalIngredientCount = 0
+  totalIngredientCount = 0,
+  matchedIngredients = [],
+  unmatchedIngredients = []
 }) => {
   if (!isVisible) return null;
 
@@ -47,6 +51,33 @@ const RecommendationNotice: React.FC<RecommendationNoticeProps> = ({
             <li>Compare prices between stores</li>
             <li>Once ordered, items will appear in your ingredients list</li>
           </ul>
+          
+          {matchedIngredients.length > 0 && (
+            <div className="mt-3">
+              <p className="text-sm font-medium text-blue-800">Successfully matched ingredients:</p>
+              <div className="flex flex-wrap gap-1 mt-1">
+                {matchedIngredients.map((ingredient, index) => (
+                  <span key={index} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                    <CheckCircle className="h-3 w-3 mr-1" />
+                    {ingredient}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {unmatchedIngredients.length > 0 && (
+            <div className="mt-2">
+              <p className="text-sm font-medium text-blue-800">Ingredients without product matches:</p>
+              <div className="flex flex-wrap gap-1 mt-1">
+                {unmatchedIngredients.map((ingredient, index) => (
+                  <span key={index} className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-yellow-100 text-yellow-800">
+                    {ingredient}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </AlertDescription>
       </Alert>
     </div>

@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { fetchStores } from '@/lib/supabaseHelpers';
 import { toast } from 'sonner';
 import { Product } from '@/components/ProductComponents';
+import { ingredientVariations } from '@/types/receipt';
 
 interface Store {
   id: string;
@@ -13,33 +14,11 @@ interface Store {
   location?: string;
 }
 
-// Common ingredient variations map
-const ingredientVariations: Record<string, string[]> = {
-  'flour': ['all-purpose flour', 'wheat flour', 'bread flour', 'plain flour'],
-  'sugar': ['white sugar', 'granulated sugar', 'brown sugar', 'cane sugar'],
-  'salt': ['sea salt', 'table salt', 'kosher salt', 'iodized salt'],
-  'milk': ['whole milk', 'skim milk', '2% milk', 'almond milk'],
-  'oil': ['olive oil', 'vegetable oil', 'canola oil', 'cooking oil'],
-  'eggs': ['egg', 'large eggs', 'egg whites', 'free-range eggs'],
-  'butter': ['unsalted butter', 'salted butter', 'margarine'],
-  'cheese': ['cheddar cheese', 'mozzarella cheese', 'parmesan cheese'],
-  'onion': ['yellow onion', 'white onion', 'red onion', 'green onion'],
-  'garlic': ['garlic clove', 'minced garlic', 'garlic powder'],
-  'pepper': ['black pepper', 'white pepper', 'bell pepper', 'chili pepper'],
-  'tomato': ['cherry tomatoes', 'roma tomatoes', 'tomato paste', 'tomato sauce'],
-  'potato': ['russet potato', 'sweet potato', 'yukon gold potato'],
-  'rice': ['white rice', 'brown rice', 'basmati rice', 'jasmine rice'],
-  'pasta': ['spaghetti', 'penne', 'macaroni', 'linguine', 'fettuccine'],
-  'chicken': ['chicken breast', 'chicken thigh', 'chicken wings', 'rotisserie chicken'],
-  'beef': ['ground beef', 'steak', 'beef chuck', 'sirloin'],
-  'water': ['filtered water', 'tap water', 'spring water'],
-};
-
 // Reverse lookup map to quickly find base ingredients
 const buildReverseLookup = () => {
   const reverseLookup: Record<string, string> = {};
   Object.entries(ingredientVariations).forEach(([baseIngredient, variations]) => {
-    reverseLookup[baseIngredient] = baseIngredient;
+    reverseLookup[baseIngredient.toLowerCase()] = baseIngredient;
     variations.forEach(variation => {
       reverseLookup[variation.toLowerCase()] = baseIngredient;
     });
@@ -49,24 +28,58 @@ const buildReverseLookup = () => {
 
 const reverseLookup = buildReverseLookup();
 
-// Function to normalize ingredient name
+// Function to normalize ingredient name for consistent matching
 const normalizeIngredientName = (name: string): string => {
   const lowercaseName = name.toLowerCase().trim();
+  
+  // Direct match with a base ingredient
+  if (reverseLookup[lowercaseName]) {
+    return reverseLookup[lowercaseName];
+  }
   
   // Check if this is a variation of a base ingredient
   for (const [base, variations] of Object.entries(ingredientVariations)) {
     if (lowercaseName === base) return base;
-    if (variations.some(v => lowercaseName === v)) return base;
+    
+    // Check for exact match with variations
+    if (variations.some(v => lowercaseName === v.toLowerCase())) {
+      return base;
+    }
     
     // Check if the ingredient name contains the base
-    if (lowercaseName.includes(base)) return base;
+    if (lowercaseName.includes(base)) {
+      return base;
+    }
     
     // Check if any variation is contained in the ingredient name
-    if (variations.some(v => lowercaseName.includes(v))) return base;
+    if (variations.some(v => lowercaseName.includes(v.toLowerCase()))) {
+      return base;
+    }
   }
   
   // If no match is found, return the original name
   return lowercaseName;
+};
+
+// Calculate word similarity score between two strings
+const calculateSimilarity = (str1: string, str2: string): number => {
+  const set1 = new Set(str1.toLowerCase().split(/\s+/).filter(w => w.length > 1));
+  const set2 = new Set(str2.toLowerCase().split(/\s+/).filter(w => w.length > 1));
+  
+  let matchCount = 0;
+  for (const word of set1) {
+    for (const otherWord of set2) {
+      // Check if words are identical or one contains the other
+      if (word === otherWord || (word.length > 3 && otherWord.includes(word)) || (otherWord.length > 3 && word.includes(otherWord))) {
+        matchCount++;
+        break;
+      }
+    }
+  }
+  
+  // Return a similarity score based on word matches relative to total unique words
+  const totalUniqueWords = new Set([...set1, ...set2]).size;
+  return totalUniqueWords > 0 ? matchCount / totalUniqueWords : 0;
 };
 
 export const useProducts = () => {
@@ -77,6 +90,8 @@ export const useProducts = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all-categories');
   const [selectedStore, setSelectedStore] = useState<string>('all-stores');
   const [productsByIngredient, setProductsByIngredient] = useState<Record<string, Product[]>>({});
+  const [matchedIngredients, setMatchedIngredients] = useState<string[]>([]);
+  const [unmatchedIngredients, setUnmatchedIngredients] = useState<string[]>([]);
 
   const loadProducts = async () => {
     setLoading(true);
@@ -144,160 +159,156 @@ export const useProducts = () => {
     }
   };
   
-  // Improved product matching for ingredients
+  // Improved product matching for ingredients with detailed logs
   const getProductsForIngredients = async (ingredientNames: string[]) => {
     setLoading(true);
     try {
-      // Create a map to store products by ingredient name
-      const productMap: Record<string, Product[]> = {};
+      console.log('Finding products for ingredients:', ingredientNames);
       
       // Load all products first if not already loaded
       if (products.length === 0) {
         await loadProducts();
       }
       
-      console.log('Finding products for ingredients:', ingredientNames);
+      // Create a map to store products by ingredient name and track matched/unmatched
+      const productMap: Record<string, Product[]> = {};
+      const matched: string[] = [];
+      const unmatched: string[] = [];
       
       // For each ingredient, find matching products with improved matching algorithm
       for (const ingredientName of ingredientNames) {
+        // Skip empty ingredient names
+        if (!ingredientName.trim()) continue;
+        
         // Normalize ingredient name for better matching
         const normalizedName = normalizeIngredientName(ingredientName.toLowerCase().trim());
         console.log(`Normalized "${ingredientName}" to "${normalizedName}"`);
         
-        // Match products using more flexible criteria
+        // Check for known variations first
+        const baseIngredient = normalizedName;
+        const possibleVariations = [
+          ingredientName.toLowerCase(),
+          normalizedName,
+          ...(ingredientVariations[normalizedName] || []).map(v => v.toLowerCase())
+        ];
+        
+        console.log(`Looking for matches with variations:`, possibleVariations);
+        
+        // Find products that match any of the possible variations
         const matchingProducts = products.filter(product => {
           const productName = product.name.toLowerCase();
-          const normalizedProductName = normalizeIngredientName(productName);
           
-          // Check if the normalized names match
-          if (normalizedProductName === normalizedName) {
-            console.log(`Direct normalized match: ${product.name} matches ${ingredientName}`);
-            return true;
+          // Check for exact matches first
+          for (const variation of possibleVariations) {
+            if (productName === variation || variation === productName) {
+              console.log(`Exact match: "${product.name}" matches "${variation}"`);
+              return true;
+            }
           }
           
-          // Check if product name contains ingredient name or vice versa
-          if (productName.includes(normalizedName) || normalizedName.includes(productName)) {
-            console.log(`Substring match: ${product.name} matches ${ingredientName}`);
-            return true;
+          // Check if product name contains any variation
+          for (const variation of possibleVariations) {
+            if (productName.includes(variation) || variation.includes(productName)) {
+              console.log(`Substring match: "${product.name}" contains or is contained in "${variation}"`);
+              return true;
+            }
           }
           
-          // Check if this is a known variation
-          const baseIngredient = reverseLookup[productName];
-          if (baseIngredient && baseIngredient === normalizedName) {
-            console.log(`Variation match: ${product.name} is a variation of ${ingredientName}`);
-            return true;
-          }
-          
-          // Word-by-word matching (any word in ingredient name matches any word in product name)
-          const ingredientWords = normalizedName.split(/\s+/).filter(word => word.length > 2);
-          const productWords = productName.split(/\s+/);
-          
-          const wordMatch = ingredientWords.some(ingWord => 
-            productWords.some(prodWord => 
-              prodWord.includes(ingWord) || ingWord.includes(prodWord)
-            )
+          // Word-by-word matching with similarity score
+          const similarityScore = Math.max(
+            ...possibleVariations.map(variation => calculateSimilarity(variation, productName))
           );
           
-          if (wordMatch) {
-            console.log(`Word match: ${product.name} matches ${ingredientName} by word comparison`);
+          if (similarityScore >= 0.5) { // 50% or more word similarity
+            console.log(`Word similarity match: "${product.name}" has ${similarityScore.toFixed(2)} similarity with "${ingredientName}"`);
             return true;
           }
           
           return false;
-        });
+        }).map(product => ({
+          ...product,
+          matchingIngredient: ingredientName // Store which ingredient this product matches
+        }));
         
         console.log(`Found ${matchingProducts.length} matches for ${ingredientName}`);
         
         // Store in the map
         productMap[ingredientName] = matchingProducts;
         
-        // If no matches found with the improved algorithm, try a database query with ILIKE
-        if (matchingProducts.length === 0) {
+        // If matches found, add to matched list, otherwise to unmatched
+        if (matchingProducts.length > 0) {
+          matched.push(ingredientName);
+        } else {
+          // Try database query as fallback
           console.log(`No matches found locally for ${ingredientName}, trying database query`);
           
-          // First, try to match with variations if this is a base ingredient
-          if (ingredientVariations[normalizedName]) {
-            const variations = ingredientVariations[normalizedName];
-            console.log(`Trying known variations for ${normalizedName}:`, variations);
-            
-            // For each variation, check if we have products that match
-            for (const variation of variations) {
-              const variationMatches = products.filter(product => 
-                product.name.toLowerCase().includes(variation)
-              );
+          // Create search terms based on the ingredient name and variations
+          const searchTerms = [
+            ...ingredientName.split(' ').filter(term => term.length > 2),
+            ...possibleVariations.flatMap(v => v.split(' ')).filter(term => term.length > 2)
+          ].map(term => `%${term.toLowerCase()}%`);
               
-              if (variationMatches.length > 0) {
-                console.log(`Found ${variationMatches.length} matches using variation: ${variation}`);
-                productMap[ingredientName] = variationMatches;
-                break;
-              }
-            }
-          }
-          
-          // If still no matches, try a database query
-          if (productMap[ingredientName].length === 0) {
-            // Create search terms based on the ingredient name
-            const searchTerms = ingredientName
-              .split(' ')
-              .filter(term => term.length > 2) // Only terms with length > 2
-              .map(term => `%${term.toLowerCase()}%`);
+          if (searchTerms.length > 0) {
+            console.log(`Trying database query with terms:`, searchTerms);
               
-            if (searchTerms.length > 0) {
-              // Also include variations in the search
-              if (ingredientVariations[normalizedName]) {
-                ingredientVariations[normalizedName].forEach(variation => {
-                  searchTerms.push(`%${variation.toLowerCase()}%`);
-                });
-              }
-              
-              console.log(`Trying database query with terms:`, searchTerms);
-              
-              // Build query to find products that match the ingredient
-              let query = supabase
-                .from('products')
-                .select(`
-                  *,
-                  store:store_id (
-                    id,
-                    name,
-                    address,
-                    logo_url,
-                    location
-                  )
-                `);
+            // Build query to find products that match the ingredient
+            let query = supabase
+              .from('products')
+              .select(`
+                *,
+                store:store_id (
+                  id,
+                  name,
+                  address,
+                  logo_url,
+                  location
+                )
+              `);
                 
-              // Add search conditions
-              query = searchTerms.reduce((q, term, index) => {
-                return index === 0 
-                  ? q.ilike('name', term)
-                  : q.or(`name.ilike.${term}`);
-              }, query);
+            // Add search conditions
+            query = searchTerms.reduce((q, term, index) => {
+              return index === 0 
+                ? q.ilike('name', term)
+                : q.or(`name.ilike.${term}`);
+            }, query);
               
-              // Execute query and get results
-              const { data, error } = await query;
+            // Execute query and get results
+            const { data, error } = await query;
               
-              if (!error && data.length > 0) {
-                console.log(`Database query found ${data.length} matches`);
-                // Enhance products with store information
-                const dbMatchingProducts = data.map(product => ({
-                  ...product,
-                  store_id: product.store_id || null
-                }));
+            if (!error && data && data.length > 0) {
+              console.log(`Database query found ${data.length} matches for ${ingredientName}`);
+              
+              // Add the matching ingredient information
+              const dbMatchingProducts = data.map(product => ({
+                ...product,
+                store_id: product.store_id || null,
+                matchingIngredient: ingredientName
+              }));
                 
-                // Store in the map
-                productMap[ingredientName] = dbMatchingProducts;
-              } else {
-                console.log('Database query returned no results or error:', error);
-              }
+              // Store in the map
+              productMap[ingredientName] = dbMatchingProducts;
+              matched.push(ingredientName);
+            } else {
+              console.log('Database query returned no results or error:', error);
+              unmatched.push(ingredientName);
             }
+          } else {
+            unmatched.push(ingredientName);
           }
         }
       }
       
-      console.log('Product matches found:', Object.entries(productMap).map(([ing, prods]) => 
+      // Log summary of matches
+      console.log('Product matches summary:', Object.entries(productMap).map(([ing, prods]) => 
         `${ing}: ${prods.length} products`).join(', '));
+      console.log('Matched ingredients:', matched);
+      console.log('Unmatched ingredients:', unmatched);
       
+      // Update state
       setProductsByIngredient(productMap);
+      setMatchedIngredients(matched);
+      setUnmatchedIngredients(unmatched);
+      
       return productMap;
     } catch (error) {
       console.error('Error loading products for ingredients:', error);
@@ -308,7 +319,7 @@ export const useProducts = () => {
     }
   };
   
-  // New function to count available products for recipe ingredients
+  // Count available products for recipe ingredients
   const countAvailableProductsForIngredients = (ingredientNames: string[]): number => {
     let count = 0;
     
@@ -324,7 +335,12 @@ export const useProducts = () => {
   
   // Get ingredient names from products by ingredient map
   const getMatchedIngredientNames = (): string[] => {
-    return Object.keys(productsByIngredient);
+    return matchedIngredients;
+  };
+  
+  // Get ingredients without product matches
+  const getUnmatchedIngredientNames = (): string[] => {
+    return unmatchedIngredients;
   };
 
   useEffect(() => {
@@ -365,6 +381,9 @@ export const useProducts = () => {
     getProductsForIngredients,
     productsByIngredient,
     countAvailableProductsForIngredients,
-    getMatchedIngredientNames
+    getMatchedIngredientNames,
+    getUnmatchedIngredientNames,
+    matchedIngredients,
+    unmatchedIngredients
   };
 };
