@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Layout } from '@/components/LayoutComponents';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from '@/components/AuthComponents';
-import { Check, X, ShoppingCart, AlertTriangle } from 'lucide-react';
+import { Check, X, ShoppingCart, AlertTriangle, ChefHat } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { 
@@ -19,6 +18,8 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { useProducts } from '@/hooks/useProducts';
 import RecommendationNotice from '@/components/product/RecommendationNotice';
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import RecipeGenerator from '@/components/recipe/RecipeGenerator';
 
 interface Ingredient {
   name: string;
@@ -51,6 +52,7 @@ const RecommendationsPage = () => {
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [addingToCart, setAddingToCart] = useState(false);
   const [creatingIngredients, setCreatingIngredients] = useState(false);
+  const [showRecipeGenerator, setShowRecipeGenerator] = useState(false);
   
   // Use our improved product matching hook
   const {
@@ -364,6 +366,27 @@ const RecommendationsPage = () => {
     }
   };
   
+  // Open AI recipe generator
+  const handleOpenRecipeGenerator = () => {
+    setShowRecipeGenerator(true);
+  };
+  
+  // Get available ingredient names for AI generator
+  const getAvailableIngredientNames = (): string[] => {
+    if (!selectedRecipe) return [];
+    return selectedRecipe.ingredients
+      .filter(ing => ing.available)
+      .map(ing => ing.name);
+  };
+  
+  // Get missing ingredient names for AI generator
+  const getMissingIngredientNames = (): string[] => {
+    if (!selectedRecipe) return [];
+    return selectedRecipe.ingredients
+      .filter(ing => !ing.available)
+      .map(ing => ing.name);
+  };
+  
   return (
     <Layout>
       <div className="container mx-auto">
@@ -374,7 +397,7 @@ const RecommendationsPage = () => {
           isVisible={true}
           recipeCount={recipes.length}
           storeCount={new Set(Object.values(productsForIngredients)
-            .flatMap(prods => prods.filter(Boolean).map(p => p.store?.id))
+            .flatMap(prods => Array.isArray(prods) ? prods.filter(Boolean).map(p => p.store?.id) : [])
             .filter(Boolean)).size}
           availableProductCount={matchedIngredients.length}
           totalIngredientCount={matchedIngredients.length + unmatchedIngredients.length}
@@ -444,6 +467,18 @@ const RecommendationsPage = () => {
                       disabled={creatingIngredients}
                     >
                       {creatingIngredients ? 'Adding...' : 'Add All Missing Ingredients to Fridge'}
+                    </Button>
+                  )}
+                  
+                  {/* New AI Recipe Generation Button */}
+                  {selectedRecipe && (
+                    <Button
+                      variant="default"
+                      className="w-full bg-blue-600 hover:bg-blue-700"
+                      onClick={handleOpenRecipeGenerator}
+                    >
+                      <ChefHat className="mr-2 h-4 w-4" />
+                      Generate AI Recipe
                     </Button>
                   )}
                 </CardFooter>
@@ -675,6 +710,17 @@ const RecommendationsPage = () => {
             </div>
           </div>
         )}
+        
+        {/* Recipe Generator Dialog */}
+        <Dialog open={showRecipeGenerator} onOpenChange={setShowRecipeGenerator}>
+          <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
+            <RecipeGenerator 
+              availableIngredients={getAvailableIngredientNames()} 
+              missingIngredients={getMissingIngredientNames()}
+              onClose={() => setShowRecipeGenerator(false)}
+            />
+          </DialogContent>
+        </Dialog>
       </div>
     </Layout>
   );

@@ -26,9 +26,36 @@ serve(async (req) => {
     }
 
     // Parse the request body
-    const { prompt } = await req.json();
+    const body = await req.json();
+    const { prompt, recipeMode, availableIngredients, missingIngredients } = body;
     
-    if (!prompt || typeof prompt !== 'string') {
+    let finalPrompt = prompt;
+    
+    // Format a special prompt for recipe recommendations if in recipe mode
+    if (recipeMode === true) {
+      // Build a structured prompt for recipe generation
+      finalPrompt = `Generate a recipe based on the following ingredients:\n\n`;
+      
+      if (availableIngredients && availableIngredients.length > 0) {
+        finalPrompt += `Available Ingredients:\n${availableIngredients.join('\n')}\n\n`;
+      }
+      
+      if (missingIngredients && missingIngredients.length > 0) {
+        finalPrompt += `Missing Ingredients (suggest alternatives if possible):\n${missingIngredients.join('\n')}\n\n`;
+      }
+      
+      finalPrompt += `Please format the response with these sections:
+Recipe Name:
+Ingredients:
+Instructions:
+Cooking Time:
+Difficulty:
+Alternative Ingredients (for missing ones):`;
+
+      console.log("Recipe mode prompt:", finalPrompt);
+    }
+    
+    if (!finalPrompt || typeof finalPrompt !== 'string') {
       return new Response(
         JSON.stringify({ error: 'Prompt is required and must be a string' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -45,10 +72,16 @@ serve(async (req) => {
         contents: [
           {
             parts: [
-              { text: prompt }
+              { text: finalPrompt }
             ]
           }
-        ]
+        ],
+        generationConfig: {
+          temperature: 0.7,
+          topK: 40,
+          topP: 0.95,
+          maxOutputTokens: 1024,
+        }
       }),
     });
 
@@ -67,7 +100,7 @@ serve(async (req) => {
     const generatedText = data.candidates[0]?.content?.parts[0]?.text || '';
 
     return new Response(
-      JSON.stringify({ text: generatedText }),
+      JSON.stringify({ text: generatedText, wasRecipeMode: recipeMode === true }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
     
