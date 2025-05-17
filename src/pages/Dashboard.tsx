@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Layout } from '@/components/LayoutComponents';
 import { useAuth } from '@/components/AuthComponents';
 import { FridgeStats } from '@/components/dashboard/FridgeStats';
@@ -11,18 +11,19 @@ import { useDashboardData } from '@/hooks/useDashboardData';
 const Dashboard: React.FC = () => {
   const { getUser } = useAuth();
   const user = getUser();
-  
-  // Track if this component has already initialized data
   const [hasInitialized, setHasInitialized] = useState(false);
   
-  // Initialize data only once
-  if (user?.id && !hasInitialized) {
-    useDashboardData(user.id);
-    setHasInitialized(true);
-  }
-  
-  // Get fridge statistics
+  // Always call hooks at the top level - no conditions
+  const { dataInitialized } = useDashboardData(user?.id);
   const { fridgeStats, fridgeFullnessPercentage, loading } = useFridgeStats(user?.id);
+  
+  // Use useEffect for any conditional logic
+  useEffect(() => {
+    if (user?.id && !hasInitialized && dataInitialized) {
+      setHasInitialized(true);
+      console.log('Dashboard data initialized');
+    }
+  }, [user?.id, hasInitialized, dataInitialized]);
 
   return (
     <Layout>
