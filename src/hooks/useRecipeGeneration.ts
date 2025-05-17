@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useGemini } from '@/hooks/use-gemini';
 import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
+import { toast } from '@/components/ui/use-toast';
 import { addToCart } from '@/lib/supabaseHelpers';
 
 export interface IngredientItem {
@@ -54,7 +54,11 @@ export const useRecipeGeneration = (userId?: string) => {
       setUserIngredients(data || []);
     } catch (err) {
       console.error('Error fetching user ingredients:', err);
-      toast.error('Failed to load your ingredients');
+      toast({
+        title: 'Error',
+        description: 'Failed to load your ingredients',
+        variant: 'destructive',
+      });
     } finally {
       setLoadingIngredients(false);
     }
@@ -70,7 +74,11 @@ export const useRecipeGeneration = (userId?: string) => {
   // Generate recipes based on user's actual ingredients
   const generateRecipes = async () => {
     if (!userId || userIngredients.length === 0) {
-      toast.error('No ingredients available to generate recipes');
+      toast({
+        title: 'Error',
+        description: 'No ingredients available to generate recipes',
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -111,7 +119,11 @@ Make sure to ONLY include ingredients from my list in the "Available Ingredients
       setGeneratedRecipes(sortedRecipes);
     } catch (err) {
       console.error('Error generating recipes:', err);
-      toast.error('Failed to generate recipes');
+      toast({
+        title: 'Error',
+        description: 'Failed to generate recipes',
+        variant: 'destructive',
+      });
     } finally {
       setGeneratingRecipes(false);
     }
@@ -273,15 +285,29 @@ Make sure to ONLY include ingredients from my list in the "Available Ingredients
         if (products && products.length > 0) {
           // Add product to cart
           await addToCart(userId, products[0].id);
-          toast.success(`Added ${products[0].name} to cart`);
+          toast({
+            title: 'Added to cart',
+            description: `Added ${products[0].name} to cart`,
+          });
         } else {
-          toast.error(`Could not find product for: ${ingredient.name}`);
+          toast({
+            title: 'Product not found',
+            description: `Could not find product for: ${ingredient.name}`,
+            variant: 'destructive',
+          });
         }
       }
-      toast.success('Added available products to cart');
+      toast({
+        title: 'Success',
+        description: 'Added available products to cart',
+      });
     } catch (error) {
       console.error('Error adding ingredients to cart:', error);
-      toast.error('Failed to add some ingredients to cart');
+      toast({
+        title: 'Error',
+        description: 'Failed to add some ingredients to cart',
+        variant: 'destructive',
+      });
     } finally {
       setAddingToCart(false);
     }

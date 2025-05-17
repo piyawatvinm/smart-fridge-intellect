@@ -21,6 +21,7 @@ const GenerateRecipePage = () => {
     userIngredients,
     generatedRecipes,
     generateRecipes,
+    loadUserIngredients,
     loadingIngredients,
     generatingRecipes,
     addMissingIngredientsToCart,
