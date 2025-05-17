@@ -10,6 +10,39 @@ const fetchOptions = {
   }
 };
 
+// Helper function to check if an image URL is valid
+async function isValidImageUrl(url: string): Promise<boolean> {
+  if (!url) return false;
+  
+  // Check for common invalid patterns
+  if (
+    url.includes('localhost') || 
+    url.includes('127.0.0.1') || 
+    url.trim() === '' ||
+    url === 'undefined' ||
+    url === 'null'
+  ) {
+    return false;
+  }
+  
+  try {
+    // Try to fetch the image header to see if it exists and is an image
+    const response = await fetch(url, { 
+      method: "HEAD",
+      headers: { "Accept": "image/*" }
+    });
+    
+    if (!response.ok) return false;
+    
+    // Check if content-type indicates an image
+    const contentType = response.headers.get("content-type");
+    return contentType ? contentType.startsWith("image/") : false;
+  } catch (error) {
+    // Any error during fetch means the image is not accessible
+    return false;
+  }
+}
+
 // Handle the request and run the cron job
 Deno.serve(async (_req) => {
   try {
@@ -18,66 +51,79 @@ Deno.serve(async (_req) => {
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get recipes without images (limit to 10 per run to avoid rate limiting)
+    // Get all recipes (no limit since we want to check all of them)
     const { data: recipes, error } = await supabase
       .from("recipes")
-      .select("id, name")
-      .is("image_url", null)
-      .limit(10);
+      .select("id, name, image_url");
 
     if (error) throw error;
     
     if (!recipes || recipes.length === 0) {
       return new Response(
-        JSON.stringify({ message: "No recipes need images" }),
+        JSON.stringify({ message: "No recipes found" }),
         { headers: { "Content-Type": "application/json" } }
       );
     }
 
     const results = [];
+    const processedCount = { total: 0, replaced: 0, valid: 0, invalid: 0 };
     
     // Process each recipe
     for (const recipe of recipes) {
       try {
-        const query = encodeURIComponent(recipe.name);
-        const response = await fetch(
-          `https://api.pexels.com/v1/search?query=${query}&per_page=1`,
-          fetchOptions
-        );
+        processedCount.total++;
+        const imageValid = recipe.image_url ? await isValidImageUrl(recipe.image_url) : false;
+        
+        // Only replace if the image_url is missing or invalid
+        if (!imageValid) {
+          processedCount.invalid++;
+          const query = encodeURIComponent(recipe.name);
+          const response = await fetch(
+            `https://api.pexels.com/v1/search?query=${query}&per_page=1`,
+            fetchOptions
+          );
 
-        if (!response.ok) {
-          results.push({
-            recipeId: recipe.id,
-            status: "error",
-            error: `Pexels API error: ${response.statusText}`
-          });
-          continue;
-        }
+          if (!response.ok) {
+            results.push({
+              recipeId: recipe.id,
+              status: "error",
+              error: `Pexels API error: ${response.statusText}`,
+              oldUrl: recipe.image_url || "(none)"
+            });
+            continue;
+          }
 
-        const data = await response.json();
-        if (data.photos && data.photos.length > 0) {
-          const imageUrl = data.photos[0].src.medium;
-          
-          // Update the recipe with the image URL
-          const { error: updateError } = await supabase
-            .from("recipes")
-            .update({ image_url: imageUrl })
-            .eq("id", recipe.id);
+          const data = await response.json();
+          if (data.photos && data.photos.length > 0) {
+            const imageUrl = data.photos[0].src.medium;
+            
+            // Update the recipe with the image URL
+            const { error: updateError } = await supabase
+              .from("recipes")
+              .update({ image_url: imageUrl })
+              .eq("id", recipe.id);
 
-          results.push({
-            recipeId: recipe.id,
-            status: updateError ? "error" : "success",
-            imageUrl: imageUrl
-          });
-          
-          if (updateError) {
-            results[results.length - 1].error = updateError.message;
+            processedCount.replaced++;
+            results.push({
+              recipeId: recipe.id,
+              status: updateError ? "error" : "success",
+              oldUrl: recipe.image_url || "(none)",
+              newUrl: imageUrl
+            });
+            
+            if (updateError) {
+              results[results.length - 1].error = updateError.message;
+            }
+          } else {
+            results.push({
+              recipeId: recipe.id,
+              status: "no_image_found",
+              oldUrl: recipe.image_url || "(none)"
+            });
           }
         } else {
-          results.push({
-            recipeId: recipe.id,
-            status: "no_image_found"
-          });
+          // Image is valid, no need to replace
+          processedCount.valid++;
         }
         
         // Wait a bit between requests to avoid rate limiting
@@ -86,14 +132,16 @@ Deno.serve(async (_req) => {
         results.push({
           recipeId: recipe.id,
           status: "error",
-          error: error.message
+          error: error.message,
+          oldUrl: recipe.image_url || "(none)"
         });
       }
     }
 
     return new Response(
       JSON.stringify({
-        message: `Processed ${recipes.length} recipes`,
+        message: `Processed ${processedCount.total} recipes. Found ${processedCount.valid} valid images. Replaced ${processedCount.replaced} invalid images.`,
+        summary: processedCount,
         results
       }),
       { headers: { "Content-Type": "application/json" } }

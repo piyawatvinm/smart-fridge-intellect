@@ -3,12 +3,13 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader } from 'lucide-react';
+import { Loader, RefreshCw } from 'lucide-react';
 import { useRecipeImages } from '@/hooks/useRecipeImages';
 
 export const RecipeImageFetcher: React.FC = () => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
   const [progress, setProgress] = useState({ completed: 0, total: 0 });
   const { fetchImageForRecipe } = useRecipeImages();
 
@@ -69,11 +70,37 @@ export const RecipeImageFetcher: React.FC = () => {
     }
   };
 
+  const validateRecipeImages = async () => {
+    setIsValidating(true);
+    try {
+      // Call the edge function to validate and fix all recipe images
+      const { data, error } = await supabase.functions.invoke('recipe-images-cron', {});
+      
+      if (error) throw error;
+      
+      toast({
+        title: 'Image validation complete',
+        description: data.message,
+      });
+      
+      console.log('Image validation results:', data);
+    } catch (error) {
+      console.error('Error validating recipe images:', error);
+      toast({
+        title: 'Error validating images',
+        description: error instanceof Error ? error.message : 'An unknown error occurred',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
   return (
-    <div className="mb-4">
+    <div className="flex flex-col md:flex-row gap-4 mb-4">
       <Button 
         onClick={fetchAllRecipeImages} 
-        disabled={isLoading}
+        disabled={isLoading || isValidating}
         variant="outline"
       >
         {isLoading ? (
@@ -82,7 +109,25 @@ export const RecipeImageFetcher: React.FC = () => {
             Fetching images ({progress.completed}/{progress.total})
           </>
         ) : (
-          'Fetch Recipe Images'
+          'Fetch Missing Recipe Images'
+        )}
+      </Button>
+      
+      <Button 
+        onClick={validateRecipeImages} 
+        disabled={isLoading || isValidating}
+        variant="outline"
+      >
+        {isValidating ? (
+          <>
+            <Loader className="mr-2 h-4 w-4 animate-spin" />
+            Validating images...
+          </>
+        ) : (
+          <>
+            <RefreshCw className="mr-2 h-4 w-4" />
+            Validate & Fix All Recipe Images
+          </>
         )}
       </Button>
     </div>
