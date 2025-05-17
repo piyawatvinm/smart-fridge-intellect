@@ -17,7 +17,8 @@ const Index = () => {
     initData();
   }, []);
   
-  return <Navigate to="/products" replace />;
+  // Redirect to dashboard instead of products
+  return <Navigate to="/dashboard" replace />;
 };
 
 export default Index;
